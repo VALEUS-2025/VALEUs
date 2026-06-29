@@ -105,7 +105,7 @@
         if(/^firenze\b/i.test(c)) return 'Florence';
         if(/^washington\b/i.test(c)) return 'Washington D.C.';
         if(/^astana$/i.test(c)) return 'Astana (Nur-Sultan)';
-        if(/frankfurt.*am main/i.test(c)) return 'Frankfurt (Am Main)';
+        if(/frankfurt.*(?:am main|\(main\))/i.test(c)) return 'Frankfurt (Am Main)';
         if(/frankfurt.*oder/i.test(c)) return 'Frankfurt (Oder)';
         if(/bogota$/i.test(c)) return 'Bogotá';
         if(/medellin$/i.test(c)) return 'Medellín';
