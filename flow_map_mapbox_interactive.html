@@ -315,7 +315,35 @@ Test NGO;Frankfurt (Main);Germany;https://www.test-ngo.com/;Democracy;Human/Fund
     });
 
     cluster.on('clusterclick', function (a) {
-      const clusterLatLng = a.layer.getLatLng();
+      const childMarkers = a.layer.getAllChildMarkers();
+
+  // Prüfen, ob alle Marker im Cluster exakt dieselben Koordinaten haben
+      const sameCoordinates = childMarkers.every(marker => {
+        const markerLatLng = marker.getLatLng();
+        const firstLatLng = childMarkers[0].getLatLng();
+
+        return (
+          markerLatLng.lat === firstLatLng.lat &&
+          markerLatLng.lng === firstLatLng.lng
+        );
+      });
+
+  // Fall 1: mehrere Organisationen an exakt derselben Koordinate
+  // => nicht weiter hineinzoomen, sondern direkt auffächern
+      if (sameCoordinates) {
+        map.panTo(a.layer.getLatLng(), {
+          animate: true
+        });
+
+        setTimeout(function () {
+          a.layer.spiderfy();
+        }, 250);
+
+        return;
+      }
+
+  // Fall 2: Cluster enthält unterschiedliche Koordinaten
+  // => mit Abstand zum Browserrand hineinzoomen
       const childBounds = a.layer.getBounds();
 
       if (map.getZoom() < map.getMaxZoom()) {
@@ -324,7 +352,7 @@ Test NGO;Frankfurt (Main);Germany;https://www.test-ngo.com/;Democracy;Human/Fund
           maxZoom: map.getMaxZoom()
         });
       } else {
-        map.panTo(clusterLatLng, {
+        map.panTo(a.layer.getLatLng(), {
           animate: true
         });
 
