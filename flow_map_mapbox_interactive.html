@@ -317,7 +317,7 @@ Test NGO;Frankfurt (Main);Germany;https://www.test-ngo.com/;Democracy;Human/Fund
     cluster.on('clusterclick', function (a) {
       const childMarkers = a.layer.getAllChildMarkers();
 
-  // Prüfen, ob alle Marker im Cluster exakt dieselben Koordinaten haben
+  // Checking if all markers inside the cluster have the same coordinates
       const sameCoordinates = childMarkers.every(marker => {
         const markerLatLng = marker.getLatLng();
         const firstLatLng = childMarkers[0].getLatLng();
@@ -328,8 +328,8 @@ Test NGO;Frankfurt (Main);Germany;https://www.test-ngo.com/;Democracy;Human/Fund
         );
       });
 
-  // Fall 1: mehrere Organisationen an exakt derselben Koordinate
-  // => nicht weiter hineinzoomen, sondern direkt auffächern
+  // Case 1: several Organizations at the exact same coordinates
+  // => do not zoom in any further, but fan out directly
       if (sameCoordinates) {
         map.panTo(a.layer.getLatLng(), {
           animate: true
@@ -342,8 +342,8 @@ Test NGO;Frankfurt (Main);Germany;https://www.test-ngo.com/;Democracy;Human/Fund
         return;
       }
 
-  // Fall 2: Cluster enthält unterschiedliche Koordinaten
-  // => mit Abstand zum Browserrand hineinzoomen
+  // Case 2: Cluster contains different coordinates
+  // => zoom in with buffer towards the browser edge
       const childBounds = a.layer.getBounds();
 
       if (map.getZoom() < map.getMaxZoom()) {
