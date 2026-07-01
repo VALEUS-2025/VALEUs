@@ -307,9 +307,31 @@ Test NGO;Frankfurt (Main);Germany;https://www.test-ngo.com/;Democracy;Human/Fund
     }
 
     const cluster = L.markerClusterGroup({
-      spiderfyOnMaxZoom:true,
-      showCoverageOnHover:false,
-      maxClusterRadius: 45
+      spiderfyOnMaxZoom: false,
+      zoomToBoundsOnClick: false,
+      showCoverageOnHover: false,
+      maxClusterRadius: 45,
+      spiderfyDistanceMultiplier: 1.2
+    });
+
+    cluster.on('clusterclick', function (a) {
+      const clusterLatLng = a.layer.getLatLng();
+      const childBounds = a.layer.getBounds();
+
+      if (map.getZoom() < map.getMaxZoom()) {
+        map.fitBounds(childBounds, {
+          padding: [120, 120],
+          maxZoom: map.getMaxZoom()
+        });
+      } else {
+        map.panTo(clusterLatLng, {
+          animate: true
+        });
+
+        setTimeout(function () {
+          a.layer.spiderfy();
+        }, 250);
+      }
     });
 
     map.addLayer(cluster);
