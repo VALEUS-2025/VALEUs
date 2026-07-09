@@ -282,7 +282,14 @@
     .card-more p {
       text-align: justify;
       width: 100%;
+      hyphens: auto;
+      margin: 0 0 0.65rem;
     }
+
+    .card-more p:last-child {
+      margin-bottom: 0;
+    }
+
     /* ── View counter ───────────────────────────────────────────── */
     .view-counter {
       display: flex;
@@ -440,7 +447,17 @@
             
             <button class="more-toggle" type="button" aria-expanded="false" aria-controls="more-gephi-map">More</button>
             <div class="card-more" id="more-gephi-map" hidden>
-              <p>This diagram utilizes the ForceAtlas layout algorithm to visualize the connections between projects, action domains, addressees, and organizations in the VALEUs dataset. It highlights clusters and communities. ForceAtlas simulates a physical system where edges act like springs pulling related nodes closer, while nodes themselves repel one another. As a result, groups of highly connected actors cluster together, while less connected ones are pushed outward. Larger, more central nodes represent key hubs — projects or organizations with many ties — while smaller nodes at the edges reflect actors with fewer connections. The clusters, displayed in different colors, represent communities of engagement. Country → Light blue, Addressee → yellow, Organization → Purple, Action Domain → Magenta.</p>
+              <p>
+                This diagram <strong>visualizes connections</strong> between projects, organisations, action domains, addressees, countries, and institutions in the ValEUs dataset. It uses a network layout to <strong>show clusters, hubs, and bridging actors</strong>.
+              </p>
+
+              <p>
+                Larger and more central nodes represent actors or projects with many connections, while smaller nodes at the edges indicate more isolated actors. Nodes that appear between clusters often play a bridging role by linking otherwise separate areas of engagement.
+              </p>
+
+              <p>
+                The diagram therefore provides a <strong>bird’s-eye view of how civil society engagement is structured</strong>: dense cores indicate strong collaboration networks, while sparse branches point to more isolated actors or relationships.
+              </p>
             </div>
           </div>
         </div>
