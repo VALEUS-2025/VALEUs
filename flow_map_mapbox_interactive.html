@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Flow Map – Organizations by Category (Clustered)</title>
+
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
+  <link rel="icon" href="data:,">
+
+  <style>
+    html, body { height: 100%; margin: 0; }
+    #map { height: 100%; width: 100%; }
+
+    .control-panel {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      z-index: 1000;
+      background: rgba(255,255,255,0.95);
+      border: 1px solid #ddd;
+      border-radius: 12px;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.15);
+      padding: 10px 12px;
+      max-height: 70vh;
+      overflow: auto;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+    }
+
+    .legend-list { list-style: none; margin: 0; padding: 0; font-size: 13px; }
+    .legend-item { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+    .swatch { width: 14px; height: 14px; border-radius: 4px; border: 1px solid rgba(0,0,0,.15); }
+    .footer-note { font-size: 11px; color:#666; margin-top: 8px; }
+    .marker-dot { width: 16px; height: 16px; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 6px rgba(0,0,0,0.3); transition: transform 0.2s ease; }
+    .marker-dot:hover { transform: scale(1.35); z-index: 1001; }
+    .leaflet-control.custom-fit { background: #fff; border: 1px solid #ddd; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,.12); }
+    .fit-btn { display:block; padding:8px 10px; font-size:12px; cursor:pointer; border:none; background:transparent; }
+    .fit-btn:hover { background:#f5f5f5; }
+  </style>
+</head>
+
+<body>
+  <div id="map"></div>
+
+  <div class="control-panel">
+    <button id="toggle-panel" title="Hide or show filter panel"
+      style="position:absolute; top:6px; right:6px; border:none; background:transparent; font-size:18px; cursor:pointer; line-height:1;">−</button>
+
+    <h3>Filter & Legend</h3>
+    <div class="search-box">
+      <input type="text" id="search" placeholder="Search organization…" style="width:100%; padding:6px; border-radius:8px; border:1px solid #ccc;"/>
+    </div>
+    <ul class="legend-list" id="legend"></ul>
+    <div class="footer-note">Pin color = Primary category. Filtering applies to any of an org's categories. Use the ⤢ button to zoom to all pins.</div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+
+  <script>
+    // Map
+    const map = L.map('map', { zoomSnap: 0.25, zoomDelta: 0.5 }).setView([48.5, 12.0], 4);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap contributors' }).addTo(map);
+
+    // Categories + colors
+    const CAT_COLORS = {
+      'Democracy': '#5555FF',
+      'Human/Fundamental rights': '#7CCF19',
+      'International/intercultural Understanding': '#FF5955',
+      'Energy/Climate/Sustainability': '#CEA3D3',
+      'Trade/Economy': '#FFDF00',
+      'Migration': '#DB828C',
+      'Conflict/War': '#009E60',
+      'Digital Technology': '#6693BC',
+      'Digital Media': '#00A3FF',
+      'European Integration': '#BC3877',
+      'other': '#000000'
+    };
+
+    // City → lat,lng
+    const CITY_LL = {
+      'Athens,Albania':[37.9838,23.7275],
+      'Buenos Aires,Argentina':[-34.6037,-58.3816],
+      'Yerevan,Armenia':[40.1872,44.5152],
+      'Brasília,Brazil':[-15.7939,-47.8828],
+      'Goiás,Brazil':[-15.9333,-50.1403],
+      'São Paulo,Brazil':[-23.5505,-46.6333],
+      'Prague,Czech Republic':[50.0755,14.4378],
+      'Quito,Ecuador':[-0.1807,-78.4678],
+      'Bonn,Germany':[50.7374,7.0982],
+      'Göttingen,Germany':[51.5413,9.9158],
+      'Hamburg,Germany':[53.5511,9.9937],
+      'Hamm,Germany':[51.6739,7.8150],
+      'Heidelberg,Germany':[49.3988,8.6724],
+      'Kassel,Germany':[51.3127,9.4797],
+      'Konstanz,Germany':[47.6779,9.1732],
+      'Munich,Germany':[48.1351,11.5820],
+      'Mexico City,Mexico':[19.4326,-99.1332],
+      'San Cristóbal de las Casas,Mexico':[16.7370,-92.6376],
+      'Amsterdam,Netherlands':[52.3676,4.9041],
+      'Asunción,Paraguay':[-25.2637,-57.5759],
+      'Lima,Peru':[-12.0464,-77.0428],
+      'Newcastle upon Tyne,United Kingdom':[54.9783,-1.6178],
+      'Massachusetts,United States of America':[42.4072,-71.3824],
+      'Ankara,Turkey':[39.9255,32.8663],'Istanbul,Turkey':[41.0151,28.9795],'Brussels,Belgium':[50.8505,4.3488],
+      'Arlington,United States of America':[38.8810,-77.1043],'Alexandria,Egypt':[31.2058,29.9245],'Paris,France':[48.8647,2.3490],
+      'Berlin,Germany':[52.5200,13.4050],'Warsaw,Poland':[52.2370,21.0175],'Krakow,Poland':[50.0614,19.9366],
+      'Florence,Italy':[43.7793,11.2463],'Bologna,Italy':[44.4938,11.3388],'Rome,Italy':[41.9028,12.4964],
+      'Milan,Italy':[45.4643,9.1895],'Scandicci,Italy':[43.7542,11.1879],'Pisa,Italy':[43.7085,10.4036],
+      'Athens,Greece':[37.9795,23.7162],'Palermo,Italy':[38.1321,13.3356],'Carmagnola,Italy':[44.8496,7.7203],
+      'Almaty,Kazakhstan':[43.2565,76.9285],'Nuremberg,Germany':[49.46098,11.06186],'Budapest,Hungary':[47.4979,19.0402],
+      'New York City,United States of America':[40.7143,-74.0060],'Cologne,Germany':[50.9352,6.9531],'Stockholm,Sweden':[59.3294,18.0687],
+      'Copenhagen,Denmark':[55.6761,12.5683],'Vienna,Austria':[48.2085,16.3721],'Frankfurt (Am Main),Germany':[50.1155,8.6842],
+      'Washington D.C.,United States of America':[38.8951,-77.0364],'Madrid,Spain':[40.4165,-3.7026],'Leipzig,Germany':[51.3396,12.3713],
+      'Freiburg,Germany':[47.9959,7.8522],'Otzenhausen,Germany':[49.6205,7.0013],'Kyiv,Ukraine':[50.4500,30.5233],
+      'Santiago,Chile':[-33.4569,-70.6483],'Kyoto,Japan':[35.0211,135.7539],'Zagreb,Croatia':[45.8144,15.9780],
+      'Astana (Nur-Sultan),Kazakhstan':[51.1694,71.4491],'Belgrade,Serbia':[44.8040,20.4651],'Firenze (dup of Florence),Italy':[43.7793,11.2463],
+      'Barcelona,Spain':[41.3888,2.1590],'Campi Bisenzio,Italy':[43.8245,11.1303],'Pittsburgh,United States of America':[40.4406,-79.9959],
+      'Frankfurt (Oder),Germany': [52.3472, 14.5506],'Bogotá,Colombia':[4.5981, -74.0799],'Medellín,Colombia':[6.2502, -75.5676]
+    };
+
+    const normalize = {
+      city(c){
+        if(!c) return c;
+        c = c.trim();
+        if(/^firenze\b/i.test(c)) return 'Florence';
+        if(/^washington\b/i.test(c)) return 'Washington D.C.';
+        if(/^astana$/i.test(c)) return 'Astana (Nur-Sultan)';
+        if(/frankfurt.*(?:am main|\(main\))/i.test(c)) return 'Frankfurt (Am Main)';
+        if(/frankfurt.*oder/i.test(c)) return 'Frankfurt (Oder)';
+        if(/bogota$/i.test(c)) return 'Bogotá';
+        if(/medellin$/i.test(c)) return 'Medellín';
+        return c;
+      },
+      country(x){
+        if(!x) return x;
+        x = x.trim();
+        if(/^kazakhestan$/i.test(x)) return 'Kazakhstan';
+        return x;
+      },
+      cat(x){
+        if(!x) return '';
+        let s = x.trim().replace(/\s*\/\s*/g,'/');
+        const map = {
+          'human/fundamental rights':'Human/Fundamental rights',
+          'energy/climate/sustainability':'Energy/Climate/Sustainability',
+          'trade/economy':'Trade/Economy',
+          'international/intercultural understanding':'International/intercultural Understanding',
+          'digital technology':'Digital Technology',
+          'digital media':'Digital Media',
+          'european integration':'European Integration',
+          'conflict/war':'Conflict/War',
+          'other':'other',
+          'trade/economy ':'Trade/Economy'
+        };
+        const key = s.toLowerCase();
+        return map[key] || s;
+      },
+      url(u){
+        if(!u) return '';
+        u = u.trim();
+        const m = u.match(/(https?:\/\/[^\s]+|www\.[^\s]+)/i);
+        if(!m) return '';
+        let out = m[1];
+        if(/^www\./i.test(out)) out = 'https://' + out;
+        return out.replace(/[),.;]+$/,'');
+      }
+    };
+
+    // Build data from inline CSV
+    const CSV = `Name of Organization;City;Country;Website;Primary Category;Secondary Category;Third Category
+The Association of Civil Society Development Center ;Ankara;Turkey;https://www.sivilsesler.org/;Trade/Economy;;
+Turkish Economic and Social Studies Foundation ;Istanbul;Turkey;https://www.tesev.org.tr/en/home/;Democracy;;
+ECONOMIC DEVELOPMENT FOUNDATION ;Istanbul;Turkey;https://www.ikv.org.tr/ikv.asp?ust_id=2&id=10;Trade/Economy;;
+Hrant Dink Foundation ;Istanbul;Turkey;https://hrantdink.org/en/;Human/Fundamental rights;other;
+Tepsa ;Brussels;Belgium;https://tepsa.eu/;Democracy;;
+Demsoc;Brussels;Belgium;https://www.demsoc.org/;Democracy;;
+Crude Accountability;Alexandria;Egypt;https://crudeaccountability.org/;Energy/Climate/Sustainability;;
+attac;Paris;France;https://www.attac.de;Trade/Economy;;
+Fridays for future;Berlin;Germany;https://fridaysforfuture.de/;Energy/Climate/Sustainability;;
+Democracy Otwarty Dialog Foundation (Open Dialogue Foundation);Warsaw;Poland;https://en.odfoundation.eu/;Democracy;;
+Batory Foundation;Warsaw;Poland;https://www.batory.org.pl/en/;Democracy;;
+Fundacja Rozwoju Demokracji Lokalnej (Foundation for the Development of Local Democracy);Warsaw;Poland;https://frdl.org.pl/;Democracy;;
+Institute of Public Affairs (ISP);Warsaw;Poland;https://www.isp.org.pl/en/about-us;Trade/Economy;;
+CASE – Center for Social and Economic Research;Warsaw;Poland;;Trade/Economy;;
+Polish Green Network;Krakow;Poland;https://zielonasiec.pl/en/home-2/;Energy/Climate/Sustainability;;
+ClientEarth Poland;Warsaw;Poland;https://www.clientearth.pl/;Energy/Climate/Sustainability;;
+Polska Akcja Humanitarna (PAH);Warsaw;Poland;https://www.pah.org.pl/;Conflict/War;;
+Fundacja Ocalenie;Warsaw;Poland;https://ocalenie.org.pl/;Migration;;
+Stowarzyszenie Interwencji Prawnej;Warsaw;Poland;https://interwencjaprawna.pl/;Migration;;
+Helsinki Foundation for Human Rights (Helsińska Fundacja Praw Człowieka HFPC);Warsaw;Poland;https://hfhr.pl/en;Human/Fundamental rights;;
+Amnesty International Poland;Warsaw;Poland;https://www.amnesty.org/en/location/europe-and-central-asia/western-central-and-south-eastern-europe/poland/;Human/Fundamental rights;;
+Campaign Against Homophobia (Kampania Przeciw Homofobii);Warsaw;Poland;https://kph.org.pl/en/;Human/Fundamental rights;;
+COSPE;Florence;Italy;https://www.cospe.org/;Human/Fundamental rights;Conflict/War;Energy/Climate/Sustainability
+Amnesty International Firenze;Bologna;Italy;https://amnestyfirenze.wordpress.com/;Human/Fundamental rights;;
+ARCIGAY;Florence;Italy;https://www.arcigayfirenze.it/;Human/Fundamental rights;;
+IREOS;Florence;Italy;https://www.ireos.org/;Human/Fundamental rights;;
+Italiani senza cittadinanza;Rome;Italy;https://www.italianisenzacittadinanza.org/;Human/Fundamental rights;Migration;
+Black History Month Florence;Florence;Italy;http://www.blackhistorymonthflorence.com/;Human/Fundamental rights;;
+Italian Climate Network;Milan;Italy;https://www.italiaclima.org/en/home_en/;Energy/Climate/Sustainability;;
+Legambiente Firenze;Florence;Italy;https://www.legambientefirenze.it/;Energy/Climate/Sustainability;;
+Rete Semi Rurali;Scandicci;Italy;https://rsr.bio/;Energy/Climate/Sustainability;;
+Florence Must Act;Florence;Italy;https://firenzeurbanlifestyle.com/florence-must-act-un-gommone-in-arno-per-richiedere-accoglienza-per-tutti/;Migration;;
+Casa della Donna Firenze;Pisa;Italy;https://casadelledonnefirenze.it/;Human/Fundamental rights;;
+Nosotras para Ellas A.C.;Florence;Italy;https://www.girlsnotbrides.org/our-partnership/member-directory/nosotras-para-ellas-ac/;Human/Fundamental rights;;
+EuropaNow;Rome;Italy;https://www.europanow.eu/;Conflict/War;Democracy;Human/Fundamental rights
+Europe Must Act;Athens;Greece;https://www.europemustact.org/;Migration;;
+From the Sea to the City – “A consortium of civil society organizations for a welcoming Europe”;Palermo;Italy;https://fromseatocity.eu/;Human/Fundamental rights;Migration;
+Recosol (Rete dei Comuni Solidali Italy);Carmagnola;Italy;https://www.comunitasolidali.org/;other;;
+Eastern Partnership Civil Society Forum;Brussels;Belgium;https://eap-csf.eu/;other;;
+Legal Policy Research Center;Almaty;Kazakhstan;https://lprc.kz/en/home/;Human/Fundamental rights;;
+Alliance against right-wing extremism in Nuremberg (Allianz gegen Rechtsextremismus Nürnberg);Nuremberg;Germany;https://www.allianz-gegen-rechtsextremismus.de/;Democracy;;
+Antifaschists Germany;Berlin;Germany;https://antifascisteurope.org/germany/;Democracy;;
+Amnesty International;Berlin;Germany;https://www.amnesty.de/;Human/Fundamental rights;;
+Civil Development Forum Foundation (Fundacja Forum Rozwoju Obywatelskiego);Warsaw;Poland;https://wolnagospodarka.pl/en/what-we-do/forum-obywatelskiego-rozwoju/;Democracy;;
+ePaństwo Foundation (Fundacja ePaństwo);Warsaw;Poland;https://mojepanstwo.pl/fundacja;Democracy;;
+Batory Foundation (Fundacja Batorego);Warsaw;Poland;https://www.batory.org.pl/en/;Democracy;;
+Panoptykon Foundation (Fundacja Panoptykon);Warsaw;Poland;https://en.panoptykon.org/;Digital Technology;Human/Fundamental rights;
+Digital Center Foundation (Fundacja Centrum Cyfrowe);Warsaw;Poland;https://centrumcyfrowe.pl/en/homepage/;Digital Technology;;
+Polish Chamber of Information Technology and Telecommunications (Polska Izba Informatyki i Telekomunikacji PIIT);Warsaw;Poland;https://www.piit.org.pl/;Digital Technology;;
+Amerykańska Izba Handlowa w Polsce (Amcham Poland);Warsaw;Poland;https://amcham.pl/;Trade/Economy;;
+European Roma Rights Center;Budapest;Hungary;https://www.errc.org/;Human/Fundamental rights;;
+Human Rights First;New York City;United States of America;https://humanrightsfirst.org/;Human/Fundamental rights;;
+Campaign Against Homophobia (Kampania Przeciw Homofobii);Warsaw;Poland;https://kph.org.pl/;Human/Fundamental rights;;
+Central Council for Muslims in Germany ;Cologne;Germany;https://zentralrat.de/3037.php;other;;
+Central Council of Jews in Germany;Berlin;Germany;https://www.zentralratderjuden.de/;other;;
+Civil Rights Defenders;Stockholm;Sweden;https://crd.org/;Human/Fundamental rights;;
+Danish Refugee Council (Dansk Flygtningehjælp);Copenhagen;Denmark;https://drc.ngo/;Migration;;
+CEPOS;Copenhagen;Denmark;https://cepos.dk/english/;other;;
+Association of European Journalists;Vienna;Austria;https://aej.org/;Digital Technology;Human/Fundamental rights;
+European Federation of Journalists;Brussels;Belgium;https://europeanjournalists.org/;Digital Technology;Human/Fundamental rights;
+FEMEN;Paris;France;https://femen.org/;Human/Fundamental rights;;
+PRO ASYL;Frankfurt (Am Main);Germany;https://www.proasyl.de/;Migration;;
+Intercultural Council (Interkultureller Rat);Frankfurt (Am Main);Germany;https://www.coe.int/en/web/interculturalcities;other;;
+Freedom House;Washington D.C.;United States of America;https://freedomhouse.org/;Democracy;Human/Fundamental rights;
+Hungarian Civil Liberties Union (Társaság a Szabadságjogokért TASZ);Budapest;Hungary;https://tasz.hu/;Human/Fundamental rights;;
+Hungarian Helsinki Committee (Magyar Helsinki Bizottság MHB);Budapest;Hungary;https://helsinki.hu/;Human/Fundamental rights;;
+International Auschwitz Committee;Berlin;Germany;https://www.auschwitz.info/en/welcome.html;other;;
+Iustitia Association of Polish Judges (Stowarzyszenie Sędziów Polskich Iustitia);Warsaw;Poland;https://iustitia.pl/;Human/Fundamental rights;;
+Migration Aid (Hungarian civil organization);Budapest;Hungary;https://migaid.org/en/;Migration;;
+Reporters Without Borders (RSF);Paris;France;https://rsf.org/en;Digital Technology;Human/Fundamental rights;
+Roma Civil Rights Foundation (Roma Polgárjogi Alapítvány);Budapest;Hungary;http://www.rpa.ingyenweb.hu/keret.cgi?/start.html;Democracy;;
+Save the Children Denmark (Red Barnet);Copenhagen;Denmark;https://redbarnet.dk/stoet/;Human/Fundamental rights;;
+South-East Europe Media Organization (SEEMO);Vienna;Austria;https://seemo.org/;Digital Media;Human/Fundamental rights;
+International Press Institute (IPI);Vienna;Austria;https://ipi.media/;Digital Media;Human/Fundamental rights;
+Spanish federation of journalists' association (FAPE);Madrid;Spain;https://fape.es/;Digital Media;Human/Fundamental rights;
+Swedish Federation for Lesbian Gay Bisexual and Transgender Rights (Riksförbundet für homosexuellas bisexuellas transpersoners queeras och intersexpersoners rättigheter RFSL);Stockholm;Sweden;https://www.rfsl.se/en/;Human/Fundamental rights;;
+Stockholm Pride;Stockholm;Sweden;https://www.stockholmpride.org/en/;Human/Fundamental rights;;
+The Nobel Foundation (Nobelstiftelsen);Stockholm;Sweden;https://www.nobelprize.org/the-nobel-prize-organisation/the-nobel-foundation/;Human/Fundamental rights;;
+Themis Judges' Association (Stowarzyszenie Sędziów Themis);Warsaw;Poland;https://themis-sedziowie.eu/statut/;Human/Fundamental rights;;
+Bundesnetzwerk Bürgerschaftliches Engagement (BBE);Berlin;Germany;https://www.b-b-e.de/;Democracy;;
+Europäische Akademie Berlin e.V. (EAB);Berlin;Germany;https://www.eab-berlin.eu/;Democracy;;
+European Council on Foreign Relations e.V. (ECFR);Berlin;Germany;https://ecfr.eu/;other;;
+Civil Liberties Union for Europe (Liberties);Berlin;Germany;https://www.liberties.eu/en;Human/Fundamental rights;;
+We are Europe! e.V.;Leipzig;Germany;https://we-are-europe.org/;Democracy;;
+Gemeinschaft für studentischen Austausch in Mittel- und Osteuropa e.V. (GFPS);Freiburg;Germany;https://www.gfps.org/;other;;
+Ecologic Institut;Berlin;Germany;https://www.ecologic.eu/de;Energy/Climate/Sustainability;;
+Europäische Akademie Otzenhausen;Otzenhausen;Germany;https://www.eao-otzenhausen.de/;Energy/Climate/Sustainability;;
+Heinrich-Böll-Stiftung;Berlin;Germany;https://www.boell.de/de;Energy/Climate/Sustainability;Democracy;Human/Fundamental rights
+Europa-Union Deutschland (EUD);Berlin;Germany;https://www.europa-union.de/;Democracy;;
+Junge Europäische Förderalist:innen (JEF);Berlin;Germany;https://www.jef.de/;Democracy;;
+Institut für Europäische Politik e.V. (IEP);Berlin;Germany;https://iep-berlin.de/;European Integration;;
+United Europe e.V.;Berlin;Germany;https://www.united-europe.eu/de/;European Integration;;
+Citizens of Europe e.V.;Berlin;Germany;https://citizens-of-europe.eu/;Democracy;;
+América Latina y el Caribe Mejor Sin TLC;Santiago;Chile;https://americalatinasintlc.org/;Democracy;Energy/Climate/Sustainability;Trade/Economy
+Red EU-LAT;Brussels;Belgium;https://eulatnetwork.org/es/;Trade/Economy;Democracy;Energy/Climate/Sustainability
+Croatian Youth Network;Zagreb;Croatia;https://mmh.hr/;Democracy;Digital Technology;Active Citizenship
+Legal Media-Center;Astana (Nur-Sultan);Kazakhstan;https://www.lmc.kz/ru;Human/Fundamental rights;;
+Eurasia Foundation of Central Asia;Almaty;Kazakhstan;http://en.ef-ca.kz/;Human/Fundamental rights;;
+Center for Cultural Decontamination;Belgrade;Serbia;https://www.czkd.org;Human/Fundamental rights;;
+DAH Teatar;Belgrade;Serbia;https://en.dahteatarcentar.com/;Democracy;;
+COSPE ETS;Florence;Italy;https://www.cospe.org/;Migration;Conflict/War;
+Collettivo Di Fabbrica - Lavoratori Gkn Firenze;Campi Bisenzio;Italy;https://insorgiamo.org;Energy/Climate/Sustainability;Trade/Economy;
+DiEM25;Brussels;Belgium;https://diem25.org/;Energy/Climate/Sustainability;Trade/Economy;
+YUCOM: Lawyers’ Committee for Human Rights;Belgrade;Serbia;https://yucom.org.rs/en/home/;Human/Fundamental rights;;
+Kazakhstan International Bureau for Human Rights and Rule of Law;Almaty;Kazakhstan;https://bureau.kz/en/;Human/Fundamental rights;;
+VoxUkraine;Kyiv;Ukraine;https://voxukraine.org/en/;Democracy;Human/Fundamental rights;Digital Technology
+The "New Europe Center";Kyiv;Ukraine;https://neweurope.org.ua/en/;Democracy;Human/Fundamental rights;Conflict/War
+Oekumenisches Europa-Centrum Frankfurt (Oder) e.V.;Frankfurt (Oder);Germany;https://www.oec-ff.de/index.php/de/;International/intercultural Understanding;;
+Europa-Union Deutschland e.V.;Berlin;Germany;https://www.europa-union.de/;Democracy;;
+Pulse of Europe e.V.;Frankfurt (Am Main);Germany;https://pulseofeurope.eu/;Human/Fundamental rights;Democracy;
+Redadelco;Bogotá;Colombia;https://redadelco.org/;Trade/Economy;Conflict/War;
+Fundación Lazos de Dignidad;Bogotá;Colombia;https://www.lazosdedignidad.org/;Conflict/War;;
+Conciudadanía;Medellín;Colombia;https://conciudadania.org/;Energy/Climate/Sustainability;Democracy;Human/Fundamental rights
+Europe without Barriers;Kyiv;Ukraine;https://english.europewb.org.ua/;Democracy;Human/Fundamental rights;Trade/Economy
+NKUA / ESST;Athens;Albania;https://www.x.com;Democracy;Conflict/War;
+Attac Argentina;Buenos Aires;Argentina;https://attac-argentina.com.ar/;Trade/Economy;;
+Tierra Nativa - Amigos de la Tierra Argentina;Buenos Aires;Argentina;https://tierranativa.org.ar/;Trade/Economy;Energy/Climate/Sustainability;Democracy
+European New School of Digital Studies;Yerevan;Armenia;https://www.ens.com;Digital Technology;Trade/Economy;
+Anders Handeln Austria;Vienna;Austria;https://anders-handeln.at/;Trade/Economy;Energy/Climate/Sustainability;
+Attac Austria;Vienna;Austria;https://www.attac.at/;Trade/Economy;Energy/Climate/Sustainability;Human/Fundamental rights
+Climate Action Network (CAN) Europe;Brussels;Belgium;https://caneurope.org/;Energy/Climate/Sustainability;;
+DiEM25;Brussels;Belgium;https://diem25.org/;Conflict/War;Human/Fundamental rights;
+European Coordination Via Campesina;Brussels;Belgium;https://www.eurovia.org/;Trade/Economy;Human/Fundamental rights;
+Friends of the Earth Europe;Brussels;Belgium;https://friendsoftheearth.eu;Energy/Climate/Sustainability;;
+Humundi;Brussels;Belgium;https://www.humundi.org/;Trade/Economy;Energy/Climate/Sustainability;Human/Fundamental rights
+Mouvement d'Action Paysanne;Brussels;Belgium;https://www.lemap.be/;Energy/Climate/Sustainability;Trade/Economy;Democracy
+Red Europea OIDHACO (Oficina Internacional Derechos Humanos Acción Colombia);Brussels;Belgium;https://www.oidhaco.org/;Migration;;
+Comissão para Ação Sociotransformadora - CEPAST-CNBB;Brasília;Brazil;https://cepastcnbb.org.br/;Energy/Climate/Sustainability;Human/Fundamental rights;
+Cáritas Brasileira;Brasília;Brazil;https://caritas.org.br/;Migration;Human/Fundamental rights;
+Comissão pastoral da Terra (CPT);Goiás;Brazil;https://cptnacional.org.br/;Human/Fundamental rights;Democracy;
+Jubileu Sul Brasil;São Paulo;Brazil;https://jubileusul.org.br/;Trade/Economy;Energy/Climate/Sustainability;Democracy
+REBRIP;São Paulo;Brazil;https://rebrip.org/;Trade/Economy;Democracy;
+AIESEC Iran;Prague;Czech Republic;https://aiesec.net;Digital Technology;;
+CDES;Quito;Ecuador;https://cdes.org.ec/;Human/Fundamental rights;;
+CCFD-Terre Solidaire;Paris;France;https://ccfd-terresolidaire.org/;Trade/Economy;Human/Fundamental rights;
+Aktionsgemeinschaft solidarische Welt;Berlin;Germany;https://www.aswnet.de/ueber-uns;Human/Fundamental rights;;
+ASA, asamblea en solidaridad con Argentina en Berlín;Berlin;Germany;https://asambleaargentinaberlin.org/;Democracy;Trade/Economy;Human/Fundamental rights
+Berliner Wassertisch;Berlin;Germany;https://berliner-wassertisch.de/;Democracy;Trade/Economy;Energy/Climate/Sustainability
+FDCL - Forschungs- und Dokumentationszentrum Chile-Lateinamerika;Berlin;Germany;https://www.fdcl.org/;Energy/Climate/Sustainability;;
+Netzwerk gerechter Welthandel;Berlin;Germany;https://www.gerechter-welthandel.org/;Trade/Economy;Energy/Climate/Sustainability;Human/Fundamental rights
+PowerShift e.V.;Berlin;Germany;https://power-shift.de;Trade/Economy;Energy/Climate/Sustainability;
+BUNDjugend;Bonn;Germany;https://www.bundjugend.de/;Energy/Climate/Sustainability;Trade/Economy;
+Attac Deutschland;Frankfurt (Am Main);Germany;https://www.attac.de/;Trade/Economy;;
+Entwicklungspolitisches Netzwerk Hessen;Frankfurt (Am Main);Germany;https://www.epn-hessen.de/;Democracy;Energy/Climate/Sustainability;Migration
+Gesellschaft für bedrohte Völker (GfbV);Göttingen;Germany;https://www.gfbv.de/;Human/Fundamental rights;Conflict/War;Democracy
+EU-LAC;Hamburg;Germany;https://eulacfoundation.org/;Human/Fundamental rights;Democracy;
+Rettet den Regenwald/ Salva la Selva;Hamburg;Germany;https://www.salvalaselva.org/;Energy/Climate/Sustainability;Trade/Economy;
+Arbeitsgemeinschaft bäuerliche Landwirtschaft e.V.;Hamm;Germany;https://www.abl-ev.de/start;Energy/Climate/Sustainability;;
+FIAN Alemania;Heidelberg;Germany;https://www.fian.de/;Human/Fundamental rights;Trade/Economy;
+Sozialer Friedensdienst Kassel e.V.;Kassel;Germany;https://sfd-kassel.de/;Energy/Climate/Sustainability;Trade/Economy;
+Konstanzer Bündnis gerechter Welthandel;Konstanz;Germany;https://www.konstanz-gegen-ttip.de/;Trade/Economy;Democracy;
+Umweltinstitut München;Munich;Germany;https://umweltinstitut.org/;Energy/Climate/Sustainability;Trade/Economy;
+test;test;Germany;https://test.de;other;;
+COSPE ETS;Florence;Italy;https://www.cospe.org/;Human/Fundamental rights;Migration;
+Support Office for Student Volunteers Activities, Doshisha University;Kyoto;Japan;https://volunteer.doshisha.ac.jp/network/;Human/Fundamental rights;Migration;
+SEPLA;Mexico City;Mexico;https://sepla21.org/;Trade/Economy;Democracy;
+Otros Mundos Chiapas;San Cristóbal de las Casas;Mexico;https://otrosmundoschiapas.org/;Trade/Economy;Energy/Climate/Sustainability;Human/Fundamental rights
+Friends of the Earth International;Amsterdam;Netherlands;https://www.foei.org;Energy/Climate/Sustainability;;
+Global Forest Coalition;Amsterdam;Netherlands;https://globalforestcoalition.org/;Energy/Climate/Sustainability;Human/Fundamental rights;Democracy
+Handel Anders!;Amsterdam;Netherlands;https://handelanders.nl/en;Trade/Economy;Energy/Climate/Sustainability;Democracy
+Heñói Centro de Estudios;Asunción;Paraguay;https://henoi.org.py/index.php/en/home/;Human/Fundamental rights;Energy/Climate/Sustainability;
+SOBREVIVENCIA, Amigos de la Tierra Paraguay;Asunción;Paraguay;https://www.sobrevivencia.org.py/;Energy/Climate/Sustainability;Trade/Economy;
+RedGE;Lima;Peru;https://www.redge.org.pe/;Trade/Economy;Energy/Climate/Sustainability;Human/Fundamental rights
+Center for Cultural Decontamination;Belgrade;Serbia;https://www.czkd.org/en/about-us/#:~:text=The%20Center%20for%20Cultural%20Decontamination%20%28CZKD%29%20is%20a,on%20critical%20thinking%2C%20and%20cultural%20and%20artistic%20production;Democracy;;
+DAH Teatar;Belgrade;Serbia;https://en.dahteatarcentar.com/;Migration;Conflict/War;
+Creación Positiva;Barcelona;Spain;https://www.creacionpositiva.org/;Migration;Human/Fundamental rights;
+GRAIN;Barcelona;Spain;https://grain.org/;Trade/Economy;Energy/Climate/Sustainability;
+Research & Degrowth International;Barcelona;Spain;https://degrowth.org;Energy/Climate/Sustainability;Trade/Economy;
+Taula per Méxic;Barcelona;Spain;https://www.taulapermexic.org/;Human/Fundamental rights;;
+Attac España;Madrid;Spain;https://attac.es/;Trade/Economy;Democracy;
+Fridays for Future;Stockholm;Sweden;https://eci.fridaysforfuture.org/en/;Democracy;Trade/Economy;Energy/Climate/Sustainability
+Transform Trade;Newcastle upon Tyne;United Kingdom;https://www.transform-trade.org/;Trade/Economy;Human/Fundamental rights;
+Batani Foundation;Massachusetts;United States of America;https://www.batani.org;Human/Fundamental rights;Democracy;
+REEES. University of Pittsburgh;Pittsburgh;United States of America;https://www.ucis.pitt.edu/crees/;Under discussion;Energy/Climate/Sustainability;`;
+
+
+    // Parse and build org objects
+    const organizations = [];
+    const lines = CSV.split(/\n/).filter(Boolean);
+    lines.shift();
+
+    lines.forEach(line => {
+      const parts = line.split(/;|\t/).map(x => x.trim());
+      const [name, rawCity, rawCountry, website, p, s, t] = parts;
+      const city = normalize.city(rawCity);
+      const country = normalize.country(rawCountry);
+      const key = `${city},${country}`;
+      const ll = CITY_LL[key];
+      if(!ll) return;
+
+      // Originalkategorien fuer das Popup behalten; fuer Filter und Farbe
+      // werden die beiden nicht eigenstaendigen Domains unter other gruppiert.
+      const cats = [normalize.cat(p), normalize.cat(s), normalize.cat(t)].filter(Boolean);
+      const filterCats = Array.from(new Set(
+        cats.map(cat => {
+          const key = cat.toLowerCase();
+          return (key === 'under discussion' || key === 'active citizenship')
+            ? 'other'
+            : cat;
+        })
+      ));
+      const primary = filterCats[0] || 'other';
+
+      organizations.push({
+        name,
+        city,
+        country,
+        latlng: ll,
+        website: normalize.url(website),
+        categories: cats,
+        filterCategories: filterCats,
+        primary
+      });
+    });
+
+    function makeDivIcon(color){
+      const div = document.createElement('div');
+      div.className = 'marker-dot';
+      div.style.background = color;
+      return L.divIcon({ className: '', html: div.outerHTML, iconSize: [16,16], iconAnchor: [8,8] });
+    }
+
+    const cluster = L.markerClusterGroup({
+      spiderfyOnMaxZoom: false,
+      zoomToBoundsOnClick: false,
+      showCoverageOnHover: false,
+      maxClusterRadius: 45,
+      spiderfyDistanceMultiplier: 1.2
+    });
+
+    cluster.on('clusterclick', function (a) {
+      const childMarkers = a.layer.getAllChildMarkers();
+
+  // Checking if all markers inside the cluster have the same coordinates
+      const sameCoordinates = childMarkers.every(marker => {
+        const markerLatLng = marker.getLatLng();
+        const firstLatLng = childMarkers[0].getLatLng();
+
+        return (
+          markerLatLng.lat === firstLatLng.lat &&
+          markerLatLng.lng === firstLatLng.lng
+        );
+      });
+
+  // Case 1: several Organizations at the exact same coordinates
+  // => do not zoom in any further, but fan out directly
+      if (sameCoordinates) {
+        map.panTo(a.layer.getLatLng(), {
+          animate: true
+        });
+
+        setTimeout(function () {
+          a.layer.spiderfy();
+        }, 250);
+
+        return;
+      }
+
+  // Case 2: Cluster contains different coordinates
+  // => zoom in with buffer towards the browser edge
+      const childBounds = a.layer.getBounds();
+
+      if (map.getZoom() < map.getMaxZoom()) {
+        map.fitBounds(childBounds, {
+          padding: [120, 120],
+          maxZoom: map.getMaxZoom()
+        });
+      } else {
+        map.panTo(a.layer.getLatLng(), {
+          animate: true
+        });
+
+        setTimeout(function () {
+          a.layer.spiderfy();
+        }, 250);
+      }
+    });
+
+    map.addLayer(cluster);
+
+    let allMarkers = [];
+
+    function render(data){
+      cluster.clearLayers();
+
+      allMarkers = data.map(o => {
+        const icon = makeDivIcon(CAT_COLORS[o.primary] || CAT_COLORS['other']);
+        const m = L.marker(o.latlng, { icon });
+        m.bindTooltip(o.name);
+
+        const catsText = o.categories.join(', ') || 'other';
+        const link = o.website
+          ? `<a href="${o.website}" target="_blank" rel="noopener">${o.website}</a>`
+          : '<em>No website</em>';
+
+        m.bindPopup(`
+          <div style="font-weight:700; font-size:14px; margin-bottom:4px;">${o.name}</div>
+          <div style="margin-bottom:6px; font-size:12px; color:#444;">${o.city}, ${o.country}</div>
+          <div style="margin-bottom:6px;">${link}</div>
+          <div style="font-size:12px; color:#333;"><strong>Categories:</strong> ${catsText}</div>
+        `);
+
+        m.__data = o;
+        return m;
+      });
+
+      cluster.addLayers(allMarkers);
+      fitAll();
+    }
+
+    const legendEl = document.getElementById('legend');
+    const ALL_CATS = Array.from(new Set(
+      organizations.flatMap(o =>
+        o.filterCategories.length ? o.filterCategories : ['other']
+      )
+    )).sort();
+
+    ALL_CATS.forEach(cat => {
+      const li = document.createElement('li');
+      li.className = 'legend-item';
+
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.checked = true;
+      cb.dataset.cat = cat;
+      cb.addEventListener('change', applyFilters);
+
+      const sw = document.createElement('span');
+      sw.className = 'swatch';
+      sw.style.background = CAT_COLORS[cat] || CAT_COLORS['other'];
+
+      const label = document.createElement('span');
+      label.textContent = ' ' + cat;
+
+      li.appendChild(sw);
+      li.prepend(cb);
+      li.appendChild(label);
+      legendEl.appendChild(li);
+    });
+
+    document.getElementById('search').addEventListener('input', applyFilters);
+
+    function applyFilters(){
+      const q = document.getElementById('search').value.trim().toLowerCase();
+      const activeCats = Array.from(document.querySelectorAll('#legend input[type="checkbox"]:checked'))
+        .map(x => x.dataset.cat);
+
+      const filtered = organizations.filter(o =>
+        (!q || o.name.toLowerCase().includes(q)) &&
+        (o.filterCategories.length
+          ? o.filterCategories.some(c => activeCats.includes(c))
+          : activeCats.includes('other'))
+      );
+
+      render(filtered);
+    }
+
+    function fitAll(){
+      if(!allMarkers.length) return;
+      const fg = L.featureGroup(allMarkers);
+      try { map.fitBounds(fg.getBounds().pad(0.15)); } catch(e) {}
+    }
+
+    const FitControl = L.Control.extend({
+      options: { position: 'topleft' },
+      onAdd: function(){
+        const div = L.DomUtil.create('div', 'leaflet-control custom-fit');
+        const btn = L.DomUtil.create('button', 'fit-btn', div);
+        btn.type = 'button';
+        btn.title = 'Zoom to show all organizations';
+        btn.innerHTML = '⤢ Show all';
+        L.DomEvent.on(btn, 'click', (e) => {
+          L.DomEvent.stop(e);
+          fitAll();
+        });
+        return div;
+      }
+    });
+
+    map.addControl(new FitControl());
+
+    render(organizations);
+
+    const panel = document.querySelector('.control-panel');
+    const toggleBtn = document.getElementById('toggle-panel');
+    let collapsed = false;
+
+    toggleBtn.addEventListener('click', () => {
+      collapsed = !collapsed;
+
+      if (collapsed) {
+        panel.style.height = '40px';
+        panel.style.overflow = 'hidden';
+        toggleBtn.textContent = '+';
+      } else {
+        panel.style.height = '';
+        panel.style.overflow = 'auto';
+        toggleBtn.textContent = '−';
+      }
+    });
+  </script>
+</body>
+</html>
