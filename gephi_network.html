@@ -1,0 +1,980 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Interactive Gephi Diagram</title>
+  <style>
+    :root{
+      --panel-w: 280px;
+      --pad: 12px;
+      --gap: 10px;
+      --radius: 10px;
+      --shadow: 0 2px 10px rgba(0,0,0,0.14);
+      --border: 1px solid rgba(0,0,0,0.10);
+      --font: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #ffffff;
+    }
+
+    #container {
+      width: 100vw;
+      height: 100vh;
+      background: #ffffff;
+    }
+
+    /* Geometric sidebar */
+    #sidebar {
+      position: fixed;
+      top: 12px;
+      left: 12px;
+      z-index: 9999;
+      width: var(--panel-w);
+      display: grid;
+      gap: var(--gap);
+      pointer-events: auto;
+      font-family: var(--font);
+      color: #111;
+    }
+
+    .panel {
+      background: rgba(255,255,255,0.96);
+      border: var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: var(--pad);
+    }
+
+    .panel-title {
+      font-weight: 700;
+      font-size: 13px;
+      letter-spacing: 0.2px;
+      margin: 0 0 8px 0;
+    }
+
+    .controls-row{
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 8px;
+    }
+
+    button {
+      height: 36px;
+      border-radius: 9px;
+      border: 1px solid rgba(0,0,0,0.16);
+      background: #fff;
+      cursor: pointer;
+      font-size: 13px;
+      line-height: 1;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      user-select: none;
+    }
+
+    button:hover { background: rgba(0,0,0,0.03); }
+    button:active { transform: translateY(1px); }
+
+    .hint {
+      margin-top: 8px;
+      font-size: 12px;
+      opacity: 0.70;
+    }
+
+    .filters-grid{
+      display: grid;
+      gap: 6px;
+    }
+
+    label {
+      display: grid;
+      grid-template-columns: 18px 1fr;
+      align-items: center;
+      gap: 10px;
+      margin: 0;
+      font-size: 13px;
+      line-height: 1.2;
+      padding: 6px 8px;
+      border-radius: 8px;
+    }
+
+    label:hover { background: rgba(0,0,0,0.03); }
+
+    input[type="checkbox"]{
+      width: 16px;
+      height: 16px;
+      margin: 0;
+      accent-color: #111;
+    }
+
+    .year-row{
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 8px;
+      font-size: 13px;
+    }
+
+    #yearValue{
+      font-variant-numeric: tabular-nums;
+      font-weight: 700;
+      min-width: 44px;
+      text-align: right;
+    }
+
+    input[type="range"]{
+      width: 100%;
+      margin: 0;
+      height: 28px;
+    }
+
+    .small-note{
+      margin-top: 8px;
+      font-size: 12px;
+      opacity: 0.70;
+      line-height: 1.25;
+    }
+  
+    #filters label {
+      grid-template-columns: 18px 12px 1fr;
+    }
+
+    .node-swatch {
+      display: block;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      border: 1px solid rgba(0,0,0,.20);
+      box-sizing: border-box;
+    }
+
+    .filter-explainer {
+      margin-top: 10px;
+      padding-top: 9px;
+      border-top: 1px solid rgba(0,0,0,.08);
+      font-size: 10.5px;
+      line-height: 1.4;
+      color: #666;
+    }
+  
+    .period-scale {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      margin-top: -2px;
+      font-size: 10px;
+      opacity: 0.72;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .period-scale span {
+      white-space: nowrap;
+    }
+  
+    #nodeInfo {
+      position: fixed;
+      top: 12px;
+      right: 12px;
+      z-index: 10000;
+      width: min(360px, calc(100vw - 24px));
+      max-height: calc(100vh - 24px);
+      overflow-y: auto;
+      display: none;
+      box-sizing: border-box;
+      padding: 14px;
+      background: rgba(255,255,255,0.97);
+      border: var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      font-family: var(--font);
+      color: #111;
+      pointer-events: auto;
+    }
+
+    #nodeInfo.visible {
+      display: block;
+    }
+
+    #nodeInfo .info-type {
+      margin-bottom: 4px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+      opacity: .58;
+    }
+
+    #nodeInfo .info-title {
+      margin: 0 0 11px;
+      font-size: 15px;
+      font-weight: 700;
+      line-height: 1.3;
+      overflow-wrap: anywhere;
+    }
+
+    #nodeInfo .info-row {
+      padding: 8px 0;
+      border-top: 1px solid rgba(0,0,0,.08);
+    }
+
+    #nodeInfo .info-label {
+      margin-bottom: 3px;
+      font-size: 11px;
+      font-weight: 700;
+      opacity: .62;
+    }
+
+    #nodeInfo .info-value {
+      font-size: 12.5px;
+      line-height: 1.35;
+      overflow-wrap: anywhere;
+      white-space: pre-line;
+    }
+
+    #nodeInfo .country-group-gap {
+      height: 8px;
+    }
+  
+    .small-note,
+    .filter-explainer {
+      font-size: 12px;
+      line-height: 1.25;
+      text-align: justify;
+      text-justify: inter-word;
+      hyphens: auto;
+    }
+  
+    #nodeInfo .org-description-line + .org-description-line {
+      margin-top: 4px;
+    }
+
+    #nodeInfo .info-value a {
+      color: inherit;
+      text-decoration: underline;
+      text-underline-offset: 2px;
+    }
+  
+    #nodeInfo .info-list-link {
+      display: inline-block;
+      margin-left: 5px;
+      font-size: 11px;
+      font-weight: 700;
+      line-height: 1;
+      opacity: .68;
+      text-decoration: none !important;
+      vertical-align: baseline;
+    }
+
+    #nodeInfo .info-list-link:hover {
+      opacity: 1;
+    }
+  
+    #explorePanel {
+      max-height: calc(100vh - 150px);
+      overflow-y: auto;
+    }
+
+    #explorePanel .filter-explainer {
+      margin: 0 0 12px;
+      padding: 0 0 11px;
+      border-top: 0;
+      border-bottom: 1px solid rgba(0,0,0,.08);
+      color: #444;
+      font-size: 12px;
+      line-height: 1.35;
+      text-align: justify;
+      text-justify: inter-word;
+      hyphens: none;
+      overflow-wrap: normal;
+      word-break: normal;
+    }
+
+    #explorePanel .panel-section-title {
+      margin: 0 0 8px;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: .2px;
+    }
+
+    #explorePanel #filters {
+      margin-bottom: 12px;
+      padding-bottom: 11px;
+      border-bottom: 1px solid rgba(0,0,0,.08);
+    }
+
+    #explorePanel .time-section-title {
+      margin-top: 0;
+    }
+
+    #explorePanel #yearControl .small-note {
+      display: none;
+    }
+  
+    #nodeInfo .info-title-link {
+      display: inline-block;
+      margin-left: 6px;
+      font-size: 13px;
+      font-weight: 700;
+      line-height: 1;
+      opacity: .72;
+      text-decoration: none !important;
+      vertical-align: baseline;
+    }
+
+    #nodeInfo .info-title-link:hover {
+      opacity: 1;
+    }
+
+    #nodeInfo .project-description-value {
+      text-align: justify;
+      text-justify: inter-word;
+      hyphens: none;
+    }
+
+    #explorePanel .filter-explainer {
+      text-align: justify !important;
+      text-justify: inter-word !important;
+      hyphens: none !important;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="sidebar">
+    <div class="panel" id="controls">
+      <div class="panel-title">Layout</div>
+      <div class="controls-row">
+        <button id="toggle">⏸ Pause</button>
+        <button id="noverlap">✨ Space</button>
+       
+      </div>
+      <div class="hint">“Space” pauses and spreads clustered neighbors around projects.</div>
+    </div>
+
+    <div class="panel" id="explorePanel">
+      <div class="filter-explainer">The network shows how civil-society projects connect organisations with countries and addressees through action domains and specific kinds of action.<br><br>Explore the various layers of projects-based civil society engagement by using filters, the time slider or clicking nodes. Direct links help you explore the websites of the organizations and projects involved.</div>
+      <div class="panel-section-title">Filter</div>
+      <div id="filters">
+      <div class="filters-grid">
+          <label><input type="checkbox" value="Country" checked style="accent-color:#5555FF"> <span class="node-swatch" style="background:#5555FF"></span> <span>Country</span></label>
+          <label><input type="checkbox" value="Addressee" checked style="accent-color:#FFDF00"> <span class="node-swatch" style="background:#FFDF00"></span> <span>Addressee</span></label>
+          <label><input type="checkbox" value="Organization" checked style="accent-color:#7251BC"> <span class="node-swatch" style="background:#7251BC"></span> <span>Organization</span></label>
+          <label><input type="checkbox" value="Action Domain" checked style="accent-color:#F99B0C"> <span class="node-swatch" style="background:#F99B0C"></span> <span>Action Domain</span></label>
+          <label><input type="checkbox" value="Kind of Action" checked style="accent-color:#7CCF19"> <span class="node-swatch" style="background:#7CCF19"></span> <span>Kind of Action</span></label>
+        </div>
+        
+    </div>
+
+    <div class="panel-section-title time-section-title">Time</div>
+      <div id="yearControl">
+      <div class="year-row">
+        <div>Period</div>
+        <div id="yearValue">2010–2015</div>
+      </div>
+      <input type="range" id="yearSlider" min="0" max="2" value="0" step="1">
+      <div class="period-scale"><span>2010–2015</span><span>2015–2020</span><span>2020–2025</span></div>
+      
+    </div>
+    </div>
+  </div>
+
+  <aside id="nodeInfo" aria-live="polite"></aside>
+  
+  <div id="container"></div>
+
+  <script type="module">
+    import Sigma from "https://cdn.jsdelivr.net/npm/sigma@3.0.2/+esm";
+    import Graph from "https://cdn.jsdelivr.net/npm/graphology@0.25.4/+esm";
+    import forceAtlas2 from "https://cdn.jsdelivr.net/npm/graphology-layout-forceatlas2/+esm";
+    import noverlap from "https://cdn.jsdelivr.net/npm/graphology-layout-noverlap/+esm";
+    document.addEventListener("DOMContentLoaded", () => {
+      fetch("./PrjAdd-2509.json")
+        .then(r => r.json())
+        .then(data => {
+          const g = new Graph();
+
+          function truncateLabel(s, n = 20) {
+            if (!s) return "";
+            return s.length > n ? s.slice(0, n - 1) + "…" : s;
+          }
+
+          function downloadURI(uri, name) {
+            const link = document.createElement("a");
+            link.href = uri;
+            link.download = name;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+          }
+
+                              const colorMap = {
+            Country: "#5555FF",
+            Project: "#FF5955",
+            Organization: "#7251BC",
+            Addressee: "#FFDF00",
+            "Action Domain": "#F99B0C",
+            "Kind of Action": "#7CCF19"
+          };
+
+          const actionTypes = new Set([
+            "Research", "Monitoring", "Capacity Building", "Advocacy",
+            "Protest", "Education/Literacy", "engaged art"
+          ]);
+
+          // Nodes
+          data.nodes.forEach(n => {
+            let m = n.attributes.metaType || "";
+            if (actionTypes.has(m)) m = "Kind of Action";
+
+            const col = colorMap[m] || "rgb(0,0,0)";
+
+            const rawSize = Number(n.attributes.size);
+            const safeRawSize = Number.isFinite(rawSize) ? rawSize : 1;
+            const scaledSize = Math.max(2, Math.min(18, Math.sqrt(safeRawSize) * 2));
+
+            const sY = Number(n.attributes.startYear);
+            const eY = Number(n.attributes.endYear);
+
+            g.addNode(n.key, {
+              label: n.attributes.label,
+              x: Number(n.attributes.x),
+              y: Number(n.attributes.y),
+              size: scaledSize,
+              color: col,
+              metaType: m,
+              startYear: Number.isFinite(sY) ? sY : null,
+              endYear: Number.isFinite(eY) ? eY : null,
+              fullTitle: n.attributes.fullTitle || n.attributes.label || "",
+              description: n.attributes.description || "",
+                            organizationType: n.attributes.organizationType || "",
+                            organizationHeadquarters: n.attributes.organizationHeadquarters || "",
+                            organizationWebsite: n.attributes.organizationWebsite || "",
+              projectWebsite: n.attributes.projectWebsite || "",
+              organizations: n.attributes.organizations || [],
+              countries: n.attributes.countries || [],
+              countryGroups: n.attributes.countryGroups || [],
+              linkedProjects: n.attributes.linkedProjects || [],
+              actionDomains: n.attributes.actionDomains || [],
+              kindsOfAction: n.attributes.kindsOfAction || [],
+              addressees: n.attributes.addressees || []
+            });
+          });
+
+          // Edges
+          data.edges.forEach((e, i) => {
+            const edgeKey = e.key || "e" + i;
+            const edgeAttrs = {
+              size: Number(e.attributes?.weight) || 1,
+              color: "#bdbdbd",
+              label: e.attributes?.relation || ""
+            };
+
+            if (e.undirected) {
+              if (!g.hasUndirectedEdge(e.source, e.target)) {
+                g.addUndirectedEdgeWithKey(edgeKey, e.source, e.target, edgeAttrs);
+              }
+            } else {
+              if (!g.hasEdge(e.source, e.target)) {
+                g.addEdgeWithKey(edgeKey, e.source, e.target, edgeAttrs);
+              }
+            }
+          });
+
+          // Renderer
+          const container = document.getElementById("container");
+          const renderer = new Sigma(g, container);
+
+          renderer.setSetting("defaultEdgeColor", "#bdbdbd");
+          renderer.setSetting("edgeColor", "color");
+          renderer.setSetting("labelDensity", 0.08);
+          renderer.setSetting("labelGridCellSize", 90);
+          renderer.setSetting("labelRenderedSizeThreshold", 10);
+
+          renderer.getCamera().animatedReset({ duration: 600 });
+
+          // State
+          const periods = [
+              { start: 2010, end: 2015, label: "2010–2015" },
+              { start: 2015, end: 2020, label: "2015–2020" },
+              { start: 2020, end: 2025, label: "2020–2025" }
+            ];
+            let currentPeriodIndex = 0;
+          let running = true;
+
+          let activeTypes = new Set([
+            "Country", "Project", "Addressee", "Organization", "Action Domain", "Kind of Action"
+          ]);
+
+          let hoveredNode = null;
+          let pinnedNode = null;
+          let panelNode = null;
+
+          const btn = document.getElementById("toggle");
+          const noBtn = document.getElementById("noverlap");
+
+           const nodeInfo = document.getElementById("nodeInfo");
+
+           function asArray(value) {
+             if (Array.isArray(value)) return value.filter(v => v !== null && String(v).trim() !== "");
+             if (value === null || value === undefined || String(value).trim() === "") return [];
+             return [value];
+           }
+
+           function escapeHtml(value) {
+             return String(value)
+               .replaceAll("&", "&amp;")
+               .replaceAll("<", "&lt;")
+               .replaceAll(">", "&gt;")
+               .replaceAll('"', "&quot;")
+               .replaceAll("'", "&#039;");
+           }
+
+           function infoRow(label, value) {
+             const values = asArray(value);
+             if (!values.length) return "";
+             return `
+               <div class="info-row">
+                 <div class="info-label">${escapeHtml(label)}</div>
+                 <div class="info-value">${values.map(escapeHtml).join("<br>")}</div>
+               </div>`;
+           }
+
+           function safeWebsiteHref(value) {
+             let raw = String(value || "").trim();
+             if (!raw) return "";
+             if (!/^https?:\/\//i.test(raw)) raw = `https://${raw}`;
+             try {
+               const url = new URL(raw);
+               return (url.protocol === "http:" || url.protocol === "https:") ? url.href : "";
+             } catch (_) {
+               return "";
+             }
+           }
+
+           function infoOrganizationDescription(d) {
+             const parts = [];
+             if (String(d.organizationType || "").trim()) parts.push(`<div class="org-description-line"><strong>Type:</strong> ${escapeHtml(d.organizationType)}</div>`);
+             if (String(d.organizationHeadquarters || "").trim()) parts.push(`<div class="org-description-line"><strong>Headquarters:</strong> ${escapeHtml(d.organizationHeadquarters)}</div>`);
+             const website = String(d.organizationWebsite || "").trim();
+             if (website) {
+               const href = safeWebsiteHref(website);
+               if (href) parts.push(`<div class="org-description-line"><strong>Website:</strong> <a href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">${escapeHtml(website)}</a></div>`);
+               else parts.push(`<div class="org-description-line"><strong>Website:</strong> ${escapeHtml(website)}</div>`);
+             }
+             const freeText = String(d.description || "").trim();
+             if (freeText) parts.push(`<div class="org-description-line org-free-description">${escapeHtml(freeText)}</div>`);
+             if (!parts.length) return "";
+             return `<div class="info-row"><div class="info-label">Description</div><div class="info-value">${parts.join("")}</div></div>`;
+           }
+
+           function websiteForListItem(metaType, label) {
+             let found = "";
+             const wanted = String(label || "").trim();
+             if (!wanted) return "";
+
+             g.forEachNode((node, attrs) => {
+               if (found || attrs.metaType !== metaType) return;
+               const visible = metaType === "Project"
+                 ? String(attrs.fullTitle || attrs.label || "").trim()
+                 : String(attrs.label || "").trim();
+               if (visible !== wanted) return;
+               found = metaType === "Project"
+                 ? String(attrs.projectWebsite || "").trim()
+                 : String(attrs.organizationWebsite || "").trim();
+             });
+
+             return found;
+           }
+
+           function linkedListItemHtml(value, metaType) {
+             const label = String(value || "");
+             const website = websiteForListItem(metaType, label);
+             const href = safeWebsiteHref(website);
+             if (!href) return escapeHtml(label);
+             const typeName = metaType === "Project" ? "project" : "organization";
+             return `${escapeHtml(label)}<a class="info-list-link" href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer" title="Open ${typeName} website" aria-label="Open ${typeName} website">↗</a>`;
+           }
+
+           function infoLinkedRow(label, value, metaType) {
+             const values = asArray(value);
+             if (!values.length) return "";
+             return `
+               <div class="info-row">
+                 <div class="info-label">${escapeHtml(label)}</div>
+                 <div class="info-value">${values.map(v => linkedListItemHtml(v, metaType)).join("<br>")}</div>
+               </div>`;
+           }
+           function infoProjectDescription(value) {
+             const values = asArray(value);
+             if (!values.length) return "";
+             return `
+               <div class="info-row">
+                 <div class="info-label">Description</div>
+                 <div class="info-value project-description-value">${values.map(escapeHtml).join("<br>")}</div>
+               </div>`;
+           }
+           function infoCountries(label, value, groups) {
+             const values = asArray(value);
+             const groupValues = asArray(groups);
+             if (!values.length) return "";
+
+             let body = "";
+             let previousGroup = null;
+
+             values.forEach((country, i) => {
+               const group = groupValues[i] || "Rest of the World";
+               if (previousGroup !== null && group !== previousGroup) {
+                 body += `<div class="country-group-gap"></div>`;
+               }
+               body += `<div>${escapeHtml(country)}</div>`;
+               previousGroup = group;
+             });
+
+             return `
+               <div class="info-row">
+                 <div class="info-label">${escapeHtml(label)}</div>
+                 <div class="info-value country-list">${body}</div>
+               </div>`;
+           }
+
+           function showNodeInfo(nodeId) {
+             const d = g.getNodeAttributes(nodeId);
+             const supportedTypes = new Set(["Project", "Organization", "Country", "Addressee", "Action Domain", "Kind of Action"]);
+             if (!supportedTypes.has(d.metaType)) {
+               nodeInfo.classList.remove("visible");
+               nodeInfo.innerHTML = "";
+               return;
+             }
+
+             const title = d.metaType === "Project"
+               ? (d.fullTitle || d.label || "")
+               : (d.label || "");
+
+             let rows = "";
+
+             if (d.metaType === "Project") {
+               rows =
+                 infoProjectDescription(d.description) +
+                 infoLinkedRow("Organization", d.organizations, "Organization") +
+                 infoCountries("Countries", d.countries, d.countryGroups) +
+                 infoRow("Action domain", d.actionDomains) +
+                 infoRow("Kind of action", d.kindsOfAction) +
+                 infoRow("Addressees", d.addressees);
+             }
+
+             if (d.metaType === "Organization") {
+               rows =
+                 infoOrganizationDescription(d) +
+                 infoLinkedRow("Linked projects", d.linkedProjects, "Project") +
+                 infoCountries("Countries of engagement", d.countries, d.countryGroups) +
+                 infoRow("Action domains", d.actionDomains) +
+                 infoRow("Kinds of action", d.kindsOfAction) +
+                 infoRow("Addressees", d.addressees);
+             }
+
+             if (d.metaType === "Country") {
+               rows =
+                 infoLinkedRow("Linked projects", d.linkedProjects, "Project") +
+                 infoLinkedRow("Organizations", d.organizations, "Organization") +
+                 infoRow("Action domains", d.actionDomains) +
+                 infoRow("Kinds of action", d.kindsOfAction) +
+                 infoRow("Addressees", d.addressees);
+             }
+
+             if (d.metaType === "Addressee") {
+               rows =
+                 infoLinkedRow("Linked projects", d.linkedProjects, "Project") +
+                 infoLinkedRow("Organizations", d.organizations, "Organization") +
+                 infoCountries("Countries", d.countries, d.countryGroups) +
+                 infoRow("Action domains", d.actionDomains) +
+                 infoRow("Kinds of action", d.kindsOfAction);
+             }
+
+             if (d.metaType === "Action Domain") {
+               rows =
+                 infoLinkedRow("Linked projects", d.linkedProjects, "Project") +
+                 infoLinkedRow("Organizations", d.organizations, "Organization") +
+                 infoCountries("Countries", d.countries, d.countryGroups) +
+                 infoRow("Kinds of action", d.kindsOfAction) +
+                 infoRow("Addressees", d.addressees);
+             }
+
+             if (d.metaType === "Kind of Action") {
+               rows =
+                 infoLinkedRow("Linked projects", d.linkedProjects, "Project") +
+                 infoLinkedRow("Organizations", d.organizations, "Organization") +
+                 infoCountries("Countries", d.countries, d.countryGroups) +
+                 infoRow("Action domains", d.actionDomains) +
+                 infoRow("Addressees", d.addressees);
+             }
+
+             const ownProjectWebsite = d.metaType === "Project"
+               ? String(d.projectWebsite || "").trim()
+               : "";
+             const ownProjectHref = safeWebsiteHref(ownProjectWebsite);
+             const ownProjectLink = ownProjectHref
+               ? `<a class="info-title-link" href="${escapeHtml(ownProjectHref)}" target="_blank" rel="noopener noreferrer" title="Open project website" aria-label="Open project website">↗</a>`
+               : "";
+
+             nodeInfo.innerHTML =
+               `<div class="info-type">${escapeHtml(d.metaType)}</div>` +
+               `<div class="info-title">${escapeHtml(title)}${ownProjectLink}</div>` +
+               rows;
+
+             panelNode = nodeId;
+             nodeInfo.classList.add("visible");
+           }
+
+           function hideNodeInfo() {
+             panelNode = null;
+             nodeInfo.classList.remove("visible");
+             nodeInfo.innerHTML = "";
+           }
+         
+
+          // Year + emergence
+          function projectVisibleByYear(nodeId) {
+            const t = g.getNodeAttribute(nodeId, "metaType");
+            if (t !== "Project") return false;
+            const sY = g.getNodeAttribute(nodeId, "startYear");
+            const eY = g.getNodeAttribute(nodeId, "endYear");
+            const period = periods[currentPeriodIndex];
+            return Number.isFinite(sY) && Number.isFinite(eY) &&
+              sY <= period.end && period.start <= eY;
+          }
+
+          function hasActiveProjectNeighbor(nodeId) {
+            const neighbors = g.neighbors(nodeId);
+            for (const nb of neighbors) {
+              if (projectVisibleByYear(nb)) return true;
+            }
+            return false;
+          }
+
+          // --- NEW: nudge neighbors around each active project to reduce stacking
+          function nudgeProjectNeighborhoods() {
+            const push = 0.7;     // radial push strength
+            const tangK = 0.25;   // tangential spread
+
+            g.forEachNode((p) => {
+              if (g.getNodeAttribute(p, "metaType") !== "Project") return;
+              if (!projectVisibleByYear(p)) return;
+
+              const px = g.getNodeAttribute(p, "x");
+              const py = g.getNodeAttribute(p, "y");
+
+              const neighbors = g.neighbors(p).filter(n => g.getNodeAttribute(n, "metaType") !== "Project");
+              if (neighbors.length < 2) return;
+
+              const withAngle = neighbors.map(n => {
+                const x = g.getNodeAttribute(n, "x");
+                const y = g.getNodeAttribute(n, "y");
+                return { n, a: Math.atan2(y - py, x - px) };
+              }).sort((a, b) => a.a - b.a);
+
+              withAngle.forEach((obj, i) => {
+                const n = obj.n;
+                const x = g.getNodeAttribute(n, "x");
+                const y = g.getNodeAttribute(n, "y");
+
+                const dx = x - px;
+                const dy = y - py;
+                const norm = Math.sqrt(dx * dx + dy * dy) || 1;
+
+                const rx = dx / norm;
+                const ry = dy / norm;
+
+                // Tangential unit vector
+                const tx = -ry;
+                const ty = rx;
+
+                // Alternate radial in/out; add small tangential spread
+                const radial = ((i % 2 === 0) ? 1 : -1) * push;
+                const tang = ((i % 5) - 2) * (push * tangK);
+
+                g.setNodeAttribute(n, "x", x + rx * radial + tx * tang);
+                g.setNodeAttribute(n, "y", y + ry * radial + ty * tang);
+              });
+            });
+          }
+
+          // Reducers
+          renderer.setSetting("nodeReducer", (node, data) => {
+            const res = { ...data };
+
+            if (!activeTypes.has(data.metaType)) {
+              res.hidden = true;
+              return res;
+            }
+
+            if (data.metaType === "Project") {
+              if (!projectVisibleByYear(node)) {
+                res.hidden = true;
+                return res;
+              }
+            } else {
+              if (!hasActiveProjectNeighbor(node)) {
+                res.hidden = true;
+                return res;
+              }
+            }
+
+            res.label = "";
+            const isFocus = (
+              node === hoveredNode ||
+              node === pinnedNode ||
+              node === panelNode
+            );
+            if (isFocus) {
+              res.label = truncateLabel(data.label, 40);
+              res.size = data.size * 1.25;
+              res.forceLabel = true;
+              res.highlighted = true;
+              res.zIndex = 10;
+            } else if (data.size >= 10) {
+              res.label = truncateLabel(data.label, 20);
+            }
+
+            return res;
+          });
+
+          renderer.setSetting("edgeReducer", (edge, data) => {
+            const res = { ...data };
+            res.color = "#bdbdbd";
+
+            const src = g.source(edge);
+            const tgt = g.target(edge);
+
+            const srcType = g.getNodeAttribute(src, "metaType");
+            const tgtType = g.getNodeAttribute(tgt, "metaType");
+
+            if (!activeTypes.has(srcType) || !activeTypes.has(tgtType)) {
+              res.hidden = true;
+              return res;
+            }
+
+            const srcVisible = (srcType === "Project") ? projectVisibleByYear(src) : hasActiveProjectNeighbor(src);
+            const tgtVisible = (tgtType === "Project") ? projectVisibleByYear(tgt) : hasActiveProjectNeighbor(tgt);
+
+            if (!srcVisible || !tgtVisible) {
+              res.hidden = true;
+              return res;
+            }
+
+            return res;
+          });
+
+          // Hover/click labels + information panel
+          renderer.on("enterNode", ({ node }) => {
+            hoveredNode = node;
+            showNodeInfo(node);
+            renderer.refresh();
+          });
+
+          renderer.on("leaveNode", () => {
+            hoveredNode = null;
+            if (pinnedNode) showNodeInfo(pinnedNode);
+            else hideNodeInfo();
+            renderer.refresh();
+          });
+
+          renderer.on("clickNode", ({ node }) => {
+            pinnedNode = (pinnedNode === node) ? null : node;
+            if (pinnedNode) showNodeInfo(pinnedNode);
+            else if (hoveredNode) showNodeInfo(hoveredNode);
+            else hideNodeInfo();
+            renderer.refresh();
+          });
+
+          renderer.on("clickStage", () => {
+            pinnedNode = null;
+            hideNodeInfo();
+            renderer.refresh();
+          });
+
+          // Filters
+          document.querySelectorAll("#filters input").forEach(cb => {
+            cb.addEventListener("change", () => {
+              if (cb.checked) activeTypes.add(cb.value);
+              else activeTypes.delete(cb.value);
+              renderer.refresh();
+            });
+          });
+
+          // Year slider
+          const yearSlider = document.getElementById("yearSlider");
+          const yearValue = document.getElementById("yearValue");
+
+          yearSlider.addEventListener("input", () => {
+            currentPeriodIndex = parseInt(yearSlider.value, 10);
+            yearValue.textContent = periods[currentPeriodIndex].label;
+
+            // NEW: prevent immediate stacking when new nodes emerge
+            nudgeProjectNeighborhoods();
+
+            renderer.refresh();
+          });
+
+          
+
+
+
+          // Layout (movement + spacing)
+          const fa2Settings = {
+            linLogMode: true,
+            outboundAttractionDistribution: true,
+            adjustSizes: true,
+            strongGravityMode: false,
+            gravity: 0.03,
+            scalingRatio: 60,
+            slowDown: 1.0
+          };
+
+          const ITERATIONS_PER_FRAME = 2;
+
+          function loop() {
+            if (running) {
+              forceAtlas2.assign(g, { iterations: ITERATIONS_PER_FRAME, settings: fa2Settings });
+              renderer.refresh();
+            }
+            requestAnimationFrame(loop);
+          }
+          requestAnimationFrame(loop);
+
+          // Option A: stronger periodic noverlap (prevents project-neighbor stacking)
+          setInterval(() => {
+            if (running) {
+              noverlap.assign(g, { margin: 10, ratio: 1.10, speed: 1 });
+              renderer.refresh();
+            }
+          }, 900);
+
+          // Pause/Resume
+          btn.onclick = () => {
+            running = !running;
+            btn.textContent = running ? "⏸ Pause" : "▶ Resume";
+          };
+
+          // Space button: pause + nudge + strong de-overlap
+          noBtn.onclick = () => {
+            running = false;
+            btn.textContent = "▶ Resume";
+
+            nudgeProjectNeighborhoods();
+            noverlap.assign(g, { margin: 18, ratio: 1.35, speed: 4 });
+
+            renderer.refresh();
+          };
+        });
+    });
+  </script>
+</body>
+</html>
