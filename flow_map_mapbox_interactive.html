@@ -1,0 +1,2391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Flow Map – Organizations by Category (Clustered)</title>
+
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
+  <link rel="icon" href="data:,">
+
+  <style>
+    html, body { height: 100%; margin: 0; }
+    #map { height: 100%; width: 100%; }
+
+    .control-panel {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      z-index: 1000;
+      background: rgba(255,255,255,0.95);
+      border: 1px solid #ddd;
+      border-radius: 12px;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.15);
+      padding: 10px 12px;
+      max-height: 70vh;
+      overflow: auto;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+    }
+
+    .legend-list { list-style: none; margin: 0; padding: 0; font-size: 13px; }
+    .legend-item { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+    .swatch { width: 14px; height: 14px; border-radius: 4px; border: 1px solid rgba(0,0,0,.15); }
+    .footer-note { font-size: 11px; color:#666; margin-top: 8px; }
+    .marker-dot { width: 16px; height: 16px; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 6px rgba(0,0,0,0.3); transition: transform 0.2s ease; }
+    .marker-dot:hover { transform: scale(1.35); z-index: 1001; }
+    .leaflet-control.custom-fit { background: #fff; border: 1px solid #ddd; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,.12); }
+    .fit-btn { display:block; padding:8px 10px; font-size:12px; cursor:pointer; border:none; background:transparent; }
+    .fit-btn:hover { background:#f5f5f5; }
+    /* VALEUS_FLOW_POPUP_CSS_START */
+  .flow-popup {
+    width: 100%;
+    max-height: 62vh;
+    overflow-y: auto;
+    padding-right: 12px;
+    box-sizing: border-box;
+    font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+    color: #111;
+  }
+  .flow-popup-type {
+    margin-bottom: 4px;
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    opacity: .58;
+  }
+  .flow-popup-title {
+    margin-bottom: 10px;
+    font-size: 15px;
+    font-weight: 700;
+    line-height: 1.3;
+  }
+  .flow-popup-section {
+    padding: 9px 0;
+    border-top: 1px solid rgba(0,0,0,.10);
+  }
+  .flow-popup-label {
+    margin-bottom: 5px;
+    font-size: 11px;
+    font-weight: 700;
+    color: #666;
+  }
+  .flow-popup-line {
+    margin: 3px 0;
+    font-size: 12.5px;
+    line-height: 1.35;
+    overflow-wrap: anywhere;
+  }
+  .flow-popup-project {
+    padding: 8px 0;
+  }
+  .flow-popup-project + .flow-popup-project {
+    border-top: 1px solid rgba(0,0,0,.08);
+  }
+  .flow-popup-project-title {
+    margin-bottom: 5px;
+    font-size: 12.5px;
+    font-weight: 700;
+    line-height: 1.35;
+  }
+  .flow-popup-project-link {
+    display: inline-block;
+    margin-left: 5px;
+    font-size: 12px;
+    font-weight: 700;
+    text-decoration: none !important;
+    opacity: .70;
+    vertical-align: baseline;
+  }
+  .flow-popup-project-link:hover {
+    opacity: 1;
+  }
+  .flow-popup-project-description {
+    margin: 5px 0 7px;
+    font-size: 12px;
+    line-height: 1.4;
+    text-align: justify;
+    text-justify: inter-word;
+  }
+  .flow-popup a {
+    color: inherit;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+  .leaflet-popup-content {
+    max-width: 430px;
+  }
+  /* VALEUS_FLOW_POPUP_CSS_END */
+  /* VALEUS_FLOW_LAYOUT_CSS_START */
+  .control-panel {
+    width: 260px !important;
+    max-width: calc(100vw - 24px) !important;
+    box-sizing: border-box !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+  }
+
+  .control-panel * {
+    box-sizing: border-box;
+    max-width: 100%;
+  }
+
+  .control-panel .search-box,
+  .control-panel #search {
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  .control-panel .legend-list {
+    overflow-x: hidden !important;
+    min-width: 0;
+  }
+
+  .control-panel .legend-item {
+    min-width: 0;
+  }
+
+  .control-panel .legend-item span:last-child {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .flow-map-fit-note {
+    display: block;
+    margin-top: 6px;
+  }
+  /* VALEUS_FLOW_LAYOUT_CSS_END */
+</style>
+</head>
+
+<body>
+  <div id="map"></div>
+
+  <div class="control-panel">
+    <button id="toggle-panel" title="Hide or show filter panel"
+      style="position:absolute; top:6px; right:6px; border:none; background:transparent; font-size:18px; cursor:pointer; line-height:1;">−</button>
+
+    <h3>Filter & Legend</h3>
+    <div class="search-box">
+      <input type="text" id="search" placeholder="Search organization…" style="width:100%; padding:6px; border-radius:8px; border:1px solid #ccc;"/>
+    </div>
+    <ul class="legend-list" id="legend"></ul>
+    <div class="footer-note">Pin color = Primary category. Filtering applies to any of an org's categories. <span class="flow-map-fit-note">Use the ⤢ button to zoom to all pins.</span></div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+
+  <script>
+    // Map
+    const map = L.map('map', { zoomSnap: 0.25, zoomDelta: 0.5 }).setView([48.5, 12.0], 4);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap contributors' }).addTo(map);
+
+    // Categories + colors
+    const CAT_COLORS = {
+      'Democracy': '#5555FF',
+      'Human/Fundamental rights': '#7CCF19',
+      'International/intercultural Understanding': '#FF5955',
+      'Energy/Climate/Sustainability': '#CEA3D3',
+      'Trade/Economy': '#FFDF00',
+      'Migration': '#DB828C',
+      'Conflict/War': '#009E60',
+      'Digital Technology': '#6693BC',
+      'Digital Media': '#00A3FF',
+      'European Integration': '#BC3877',
+      'other': '#000000'
+    };
+
+    // City → lat,lng
+        /* VALEUS_ORG_DETAILS_START */
+    const ORG_DETAILS = {
+  "aktionsgemeinschaft solidarische welt||berlin||germany": {
+    "name": "Aktionsgemeinschaft solidarische Welt",
+    "city": "Berlin",
+    "country": "Germany",
+    "type": "NGO",
+    "website": "https://www.aswnet.de/ueber-uns",
+    "projects": [
+      {
+        "name": "Jóvenes por la justicia social y ambiental",
+        "website": "https://www.aswnet.de/projekt/Jugendkollektiv%20mittlerer%20Xingu",
+        "countries": "Brazil",
+        "description": "The Middle Xingu Youth Collective seeks to counter this trend and provide support and hope to young people. The collective, co-founded by Daniela Silva, an activist from the Xingu Movement (MXVPS), is composed mainly of girls and women between the ages of 15 and 28.",
+        "actionDomains": "Human/Fundamental rights",
+        "kindsOfAction": "Aid, Capacity Building, Education/Literacy"
+      }
+    ]
+  },
+  "américa latina y el caribe mejor sin tlc||santiago||chile": {
+    "name": "América Latina y el Caribe Mejor Sin TLC",
+    "city": "Santiago",
+    "country": "Chile",
+    "type": "Network",
+    "website": "https://americalatinasintlc.org/",
+    "projects": [
+      {
+        "name": "Encuentro Formativo de Mujeres",
+        "website": "https://ecuadordecidenotlc.blogspot.com/",
+        "countries": "Argentina, Chile, Paraguay",
+        "description": "En la semana del 11 al 16 de agosto se desarrolló en la ciudad de Quito, Ecuador, el Encuentro Formativo de Mujeres convocado por Ecuador decide Mejor sin TLC, red que integra la Plataforma América Latina y el Caribe Mejor Sin TLC. La delegación internacional estuvo conformada por representantes de las Plataformas Argentina Mejor Sin TLC, Chile Mejor Sin TLC y Paraguay Mejor Sin Libre Comercio. Durante las jornadas de formación se compartieron espacios de intercambio y análisis con referentes de diversas organizaciones sociales y políticas del Ecuador y en las que se exigió la aparición de Julia Chuñil, activista mapuche por la defensa de 900 hectáreas de bosques nativos en peligro ante la avanzada de la industria forestal sobre tierras ancestrales mapuches con la complicidad del gobierno chileno. Julia Chuñil desapareció en noviembre de 2024 durante el gobierno de Gabriel Boric, quien ha hecho caso omiso a las exigencias de la Corte Interamericana de Derechos Humanos (CIDH) y a las organizaciones sociales que exigen al Estado chileno intensificar su búsqueda. La desaparición de Julia Chuñil no es un caso aislado, ocurre en un contexto general de avanzada del neofascismo y de una izquierda inmovilizada carente de proyecto político y económico que aglutine a las mayorías trabajadoras.",
+        "actionDomains": "Democracy, Energy/Climate/Sustainability, Human/Fundamental rights, Trade/Economy",
+        "kindsOfAction": "Capacity Building, Education/Literacy, Monitoring, Research"
+      }
+    ]
+  },
+  "anders handeln austria||vienna||austria": {
+    "name": "Anders Handeln Austria",
+    "city": "Vienna",
+    "country": "Austria",
+    "type": "Network",
+    "website": "https://anders-handeln.at/",
+    "projects": [
+      {
+        "name": "EU-Mercosur Agreement",
+        "website": "https://anders-handeln.at/eu-mercosur-abkommen/",
+        "countries": "Austria",
+        "description": "The EU-Mercosur trade agreement aims to create one of the world's largest \"free\" trade zones. The agreement is intended to strengthen trade and economic cooperation, which would increase profits for transnational corporations but would severely impact the environment, climate, and social standards.",
+        "actionDomains": "Energy/Climate/Sustainability, Trade/Economy",
+        "kindsOfAction": "Advocacy, Protest"
+      }
+    ]
+  },
+  "arbeitsgemeinschaft bäuerliche landwirtschaft e.v.||hamm||germany": {
+    "name": "Arbeitsgemeinschaft bäuerliche Landwirtschaft e.V.",
+    "city": "Hamm",
+    "country": "Germany",
+    "type": "Association (e.g. foundation, union, council, charity, etc)",
+    "website": "https://www.abl-ev.de/start",
+    "projects": [
+      {
+        "name": "Ackervielfalt - vom Feld bis in den Einkaufskorb",
+        "website": "https://www.ackervielfalt.de/startseite",
+        "countries": "",
+        "description": "",
+        "actionDomains": "",
+        "kindsOfAction": ""
+      },
+      {
+        "name": "Bäuerliche Agroforste",
+        "website": "https://www.abl-nrw.de/projekte/baeuerliche-agroforste",
+        "countries": "Germany",
+        "description": "The project “Farmers’ Agroforestry – for Biodiversity, Climate Protection and Structural Diversity” of the Working Group for Farmers’ Agriculture North Rhine-Westphalia (AbL NRW) aims to raise awareness and promote agroforestry systems as a sustainable land use system in North Rhine-Westphalia due to their environmental impacts – CO2 sequestration, increased climate resilience of agricultural land, and increased agrobiodiversity . Through events such as field days and excursions, as well as introductory consultations, farms are introduced to agroforestry and informed about the ecological benefits of these systems. Furthermore, with the aim of knowledge transfer, networking among practitioners and other key stakeholders within North Rhine-Westphalia is strengthened. Funded by the North Rhine-Westphalia Foundation for Environment and Development , the project runs for 2.5 years and officially started on February 1, 2024.",
+        "actionDomains": "Energy/Climate/Sustainability",
+        "kindsOfAction": "Education/Literacy"
+      }
+    ]
+  },
+  "asa, asamblea en solidaridad con argentina en berlín||berlin||germany": {
+    "name": "ASA, asamblea en solidaridad con Argentina en Berlín",
+    "city": "Berlin",
+    "country": "Germany",
+    "type": "Activist/grassroot group",
+    "website": "https://asambleaargentinaberlin.org/",
+    "projects": [
+      {
+        "name": "Argentina no se Vende",
+        "website": "https://asambleaargentinaberlin.org/",
+        "countries": "Argentina",
+        "description": "The International Network 'Argentina No Se Vende' is a network of grassroots organizations seeking to perform solidarity actions with Argentina in the face of the advance of liberal, extractivist, and authoritarian policies. It brings together nodes in different countries to visibilize the consequences of dismantling social, labor, environmental, cultural, and gender rights, while building international solidarity bridges with related struggles in the Global South.",
+        "actionDomains": "Democracy, Human/Fundamental rights, Trade/Economy",
+        "kindsOfAction": "Advocacy, Education/Literacy, Monitoring"
+      }
+    ]
+  },
+  "attac argentina||buenos aires||argentina": {
+    "name": "Attac Argentina",
+    "city": "Buenos Aires",
+    "country": "Argentina",
+    "type": "Activist/grassroot group",
+    "website": "https://attac-argentina.com.ar/",
+    "projects": [
+      {
+        "name": "Campaign Against Free Trade Agreements (TLC)",
+        "website": "https://attac-argentina.com.ar/areas-de-accion-2/",
+        "countries": "Argentina",
+        "description": "ATTAC Argentina campaigns against Free Trade Agreements (FTAs) that it considers harmful to social rights, environmental protection, and national economic sovereignty. The initiative includes research, public statements, and collaboration with regional networks advocating alternatives to neoliberal trade regimes.",
+        "actionDomains": "Trade/Economy",
+        "kindsOfAction": "Advocacy, Research"
+      }
+    ]
+  },
+  "attac austria||vienna||austria": {
+    "name": "Attac Austria",
+    "city": "Vienna",
+    "country": "Austria",
+    "type": "Activist/grassroot group",
+    "website": "https://www.attac.at/",
+    "projects": [
+      {
+        "name": "EU-Mercosur & Co: Konzernabkommen stoppen!",
+        "website": "https://www.attac.at/kampagnen/konzernabkommen-stoppen",
+        "countries": "Argentina, Australia, Brazil, Paraguay, Uruguay",
+        "description": "The widespread resistance to agreements such as TTIP and CETA has not changed the substantive orientation of EU trade and investment policy. Currently, the EU Commission is negotiating agreements with around 90 countries on behalf of their governments. All of these agreements hinder decent working conditions for everyone. They impede sustainable agriculture and a healthy climate. They do not guarantee that people in their countries can publicly organize basic services and further expand the power of corporations and their influence on national laws. We want and need a future-proof trade and investment policy now more than ever – for all people, not just for a select few. Interventions in regulations serving the public interest, public services, and special rights to sue for corporations have no place in fair trade agreements!",
+        "actionDomains": "Energy/Climate/Sustainability, Human/Fundamental rights, Trade/Economy",
+        "kindsOfAction": "Advocacy, Protest"
+      },
+      {
+        "name": "Kettensäge stoppen!",
+        "website": "https://www.attac.at/kampagnen/kettensaege-stoppen",
+        "countries": "Austria",
+        "description": "Under the guise of \"reducing bureaucracy\" and \"enhancing competitiveness,\" the EU is currently implementing an unprecedented deregulation agenda that weakens key protections for people and the environment. They say \"reducing bureaucracy\"—and they mean our rights. With the proverbial chainsaw, crucial safeguards for people and nature are being destroyed in one fell swoop. Driven by corporate lobbyists, the EU Commission, and conservative and right-wing forces—not always in the same constellation, but always with the same brutal force.",
+        "actionDomains": "Energy/Climate/Sustainability",
+        "kindsOfAction": "Advocacy, Education/Literacy, Monitoring"
+      },
+      {
+        "name": "Wettrüsten stoppen!",
+        "website": "https://www.attac.at/kampagnen/wettruesten-stoppen",
+        "countries": "Austria",
+        "description": "The signs point to an arms race. With multi-billion-euro defense packages and subsidies for arms manufacturers, the EU aims to become \"war-ready\" by 2030. Austria is following suit with a recovery plan for 2032+, which proposes increasing military spending to 2 percent of its economic output, amounting to over 12 billion euros per year. That's more than the annual budget for education or healthcare. But those who think solely in military terms neglect what creates long-term security: social infrastructure, climate justice, diplomacy, and global solidarity. We are convinced: weapons create crises, not peace.",
+        "actionDomains": "Conflict/War",
+        "kindsOfAction": "Advocacy, Education/Literacy, Protest, Research"
+      }
+    ]
+  },
+  "attac deutschland||frankfurt (am main)||germany": {
+    "name": "Attac Deutschland",
+    "city": "Frankfurt (Am Main)",
+    "country": "Germany",
+    "type": "Activist/grassroot group",
+    "website": "https://www.attac.de/",
+    "projects": [
+      {
+        "name": "Ab jetzt gibt’s Klimageld!",
+        "website": "https://www.attac.de/neuigkeiten/detailansicht/news/ab-jetzt-gibts-klimageld",
+        "countries": "Germany",
+        "description": "For months, broad sections of civil society have been demanding the disbursement of the climate allowance that the German government promised in its 2021 coalition agreement. Now, at the initiative of the association \"Sanktionsfrei\" (Sanction-Free), a broad eco-social alliance – including Attac – is distributing a one-time payment of €139 to 1,000 people receiving citizen's income, basic income support, or housing allowance as an example. According to calculations, the sum of at least €139 paid out by the alliance would be due to every person in Germany as compensation for the CO2 pricing of recent years. For a family of four, this would amount to €556 – a noticeable financial relief. As the CO2 price rises, this amount increases accordingly each year and could create a necessary social balance.",
+        "actionDomains": "Energy/Climate/Sustainability, Trade/Economy",
+        "kindsOfAction": "Advocacy, Protest"
+      },
+      {
+        "name": "RohstoffEnergieHunger stoppen!",
+        "website": "https://www.attac.de/kampagnen/rohstoffenergiehunger-stoppen/startseite",
+        "countries": "Germany",
+        "description": "The climate catastrophe is approaching ever more rapidly. Respecting planetary boundaries requires a radical departure from growth-oriented economics. We need a circular economy that uses available resources sparingly. This necessitates a global reduction in raw material consumption . Not only oil and gas, but also many other raw materials must remain largely in the ground. An international raw materials agreement should establish upper limits for raw material consumption and ensure a fair distribution of resources.",
+        "actionDomains": "Energy/Climate/Sustainability, Trade/Economy",
+        "kindsOfAction": "Advocacy, Education/Literacy, Protest, Research"
+      },
+      {
+        "name": "Tax the Rich",
+        "website": "https://www.attac.de/kampagnen/tax-the-rich/kampagne-tax-the-rich",
+        "countries": "Germany",
+        "description": "In Germany, the wealthiest one percent of the population owns a third of the wealth. The poorer half together owns less than two percent. For decades, capital income has been taxed less and less, while earned income and consumption have been taxed more and more. As a result, the super-rich pay proportionally far less tax than average earners. Excessive wealth is destroying the social foundations of a democracy and making society increasingly unjust. With this petition, we call on the Bundestag to reinstate the wealth tax on all types of assets. This would halt the further increase of excessive wealth and reduce the accumulation of enormous fortunes.",
+        "actionDomains": "Trade/Economy",
+        "kindsOfAction": "Advocacy, Education/Literacy, Protest"
+      }
+    ]
+  },
+  "attac españa||madrid||spain": {
+    "name": "Attac España",
+    "city": "Madrid",
+    "country": "Spain",
+    "type": "Activist/grassroot group",
+    "website": "https://attac.es/",
+    "projects": [
+      {
+        "name": "Campaña por un impuesto a las transacciones financieras (ITF)",
+        "website": "https://attac.es/tag/tasa-tobin/",
+        "countries": "Spain",
+        "description": "Frenar la especulación y generar recursos destinados a combatir la pobreza y el cambio climático. Aunque la implementación de este impuesto sigue siendo limitada, la campaña ha logrado poner el tema en la agenda política internacional.",
+        "actionDomains": "Democracy, Trade/Economy",
+        "kindsOfAction": "Advocacy, Education/Literacy, Protest, Research"
+      }
+    ]
+  },
+  "batani foundation||massachusetts||united states of america": {
+    "name": "Batani Foundation",
+    "city": "Massachusetts",
+    "country": "United States of America",
+    "type": "NGO",
+    "website": "https://www.batani.org",
+    "projects": [
+      {
+        "name": "Indigenous Leadership Exchange Program",
+        "website": "https://www.batani.org/what-we-do/our-programs",
+        "countries": "Canada, Norway, Russia, United States of America",
+        "description": "The main aim of this program is to support initiatives of indigenous rights activists and community leaders from Russia in their efforts to establish contacts with indigenous communities, human rights, and environmental organizations, international human rights bodies, and development organizations abroad. The Batani foundation helps find resources and provides logistics for such exchanges, including traveling and online participation in international events.",
+        "actionDomains": "Democracy, Human/Fundamental rights",
+        "kindsOfAction": "Advocacy, Capacity Building, Education/Literacy"
+      }
+    ]
+  },
+  "berliner wassertisch||berlin||germany": {
+    "name": "Berliner Wassertisch",
+    "city": "Berlin",
+    "country": "Germany",
+    "type": "Activist/grassroot group",
+    "website": "https://berliner-wassertisch.de/",
+    "projects": [
+      {
+        "name": "Blue Community Berlin",
+        "website": "https://berliner-wassertisch.net/blue-community-berlin/",
+        "countries": "Canada, Germany",
+        "description": "\"Blue Community\" is an international grassroots movement founded by Maude Barlow, the world-renowned Canadian water activist and recipient of the Right Livelihood Award (often called the Alternative Nobel Prize). The Blue Community movement is a response to the increasing water scarcity on our planet, as well as the unequal distribution of this vital resource. A Blue Community aims to realize the human right to water and basic sanitation at both local and global levels. While this human right was recognized by the United Nations (UN) in 2010, its actual implementation remains lacking in many places.",
+        "actionDomains": "Democracy, Energy/Climate/Sustainability, Human/Fundamental rights",
+        "kindsOfAction": "Advocacy, Capacity Building, Education/Literacy, Protest"
+      },
+      {
+        "name": "Initiative BlackRock-Tribunal",
+        "website": "https://berliner-wassertisch.net/initiative-blackrock-tribunal/",
+        "countries": "Germany",
+        "description": "The US company BlackRock, nicknamed \"Black Rock,\" is the world's largest asset manager. Along with Vanguard and State Street, it belongs to the \"Big Three\" of US financial investors. They are inextricably linked. BlackRock's assets under management have now grown to more than $10 trillion. That's roughly three times the annual output of the German economy. This money is invested globally not only in the largest corporations across most sectors, but also with the biggest international auditors and rating agencies, as well as leading media outlets. Despite this, these financial giants remain virtually unknown to the public, as they avoid the limelight. For this reason, the 'BlackRock Tribunal Initiative' once again organized a conference on BlackRock and similar companies, following up on the 2020 \"tribunal.\" The initiative itself states: We are accusing BlackRock on behalf of other shadow banks: 1. Destruction of economic and political democracy, violation of international law and human rights. 2. Price gouging in rents and ancillary costs, low wages for employees 3. Increased global risk of war due to profiteering in the most important arms companies of the USA and the EU 4. Profiteering in the major coal, lignite, and oil companies. Purchase of state-guaranteed bonds from insolvent fracking companies.",
+        "actionDomains": "Democracy, Energy/Climate/Sustainability, Human/Fundamental rights, Trade/Economy",
+        "kindsOfAction": "Advocacy, Education/Literacy, Protest, Research"
+      },
+      {
+        "name": "Wassertafel Berlin-Brandenburg",
+        "website": "https://berliner-wassertisch.net/wassertafel-berlin-brandenburg",
+        "countries": "Germany",
+        "description": "The Berlin-Brandenburg Water Table is a regional network of activists, civil society groups, and environmental organizations advocating for the protection of water as a commons and a public good. It connects multiple initiatives that work on water governance, environmental protection, and sustainable water use in the Berlin-Brandenburg region. The initiative promotes public participation and cooperation among NGOs, local communities, and environmental groups to safeguard water resources.",
+        "actionDomains": "Democracy, Energy/Climate/Sustainability, Human/Fundamental rights",
+        "kindsOfAction": "Advocacy, Capacity Building, Education/Literacy"
+      }
+    ]
+  },
+  "bundjugend||bonn||germany": {
+    "name": "BUNDjugend",
+    "city": "Bonn",
+    "country": "Germany",
+    "type": "Activist/grassroot group",
+    "website": "https://www.bundjugend.de/",
+    "projects": [
+      {
+        "name": "Systeme umpflügen – reboot food!",
+        "website": "https://www.bundjugend.de/projekte/reboot/",
+        "countries": "Austria, Belgium, Denmark, France, Germany",
+        "description": "With a Europe-wide project on agroecology, BUNDjugend is committed to a fair food system , the end of colonial supply chain structures , and non-exploitative agricultural practices. Young people are supported and encouraged in their commitment through, among other things, farm visits/weekends in nature, on social media, in podcasts, with actions at festivals, as well as through exchanges with decision-makers and BIPoC activists.",
+        "actionDomains": "Energy/Climate/Sustainability, Trade/Economy",
+        "kindsOfAction": "Advocacy, Capacity Building, Education/Literacy"
+      }
+    ]
+  },
+  "ccfd-terre solidaire||paris||france": {
+    "name": "CCFD-Terre Solidaire",
+    "city": "Paris",
+    "country": "France",
+    "type": "NGO",
+    "website": "https://ccfd-terresolidaire.org/",
+    "projects": [
+      {
+        "name": "Journée d’action européenne contre l’impunité des multinationales",
+        "website": "https://ccfd-terresolidaire.org/journee-daction-europeenne-contre-limpunite-des-multinationales/",
+        "countries": "Austria, France, Germany, Italy, Poland",
+        "description": "Human rights and environmental violations, unacceptable in EU countries, should be equally unacceptable in developing countries. This is the message sought by the ECCJ – European Coalition for Corporate Justice – present in 15 European countries and represented in France by the Citizens' Forum for CSR, whose members include CCFD-Terre Solidaire, SHERPA, Friends of the Earth, CRID, and Peuples Solidaires. In France, to illustrate the need to end corporate impunity, three photomontages are being circulated online and on social media. This triptych illustrates some common violations in developing countries within a French context. Demonstrations are also being organized in several European countries. Citizens are encouraged to sign the petition for the campaign \"Rights for All, Rules for Multinationals\" www.des-reglespour-les-multinationales.org EUROPEAN DAY OF ACTION AGAINST MULTINATIONAL IMPUNITY \"From mercury pollution in South Africa to child labor in India, multinationals – including those based in Europe – continue to benefit from the lack of a legal framework regulating their operations,\" states Sandra Cossart, CSR Manager for the Sherpa association and coordinator of the \"Rights for All, Rules for Multinationals\" campaign. \"However, there are currently no mandatory international mechanisms to ensure that these multinationals are held accountable for the violations they commit, or of which they are complicit.\" This is why ECCJ is asking the EU to take action to ensure that: European multinationals should be legally responsible for damage caused to people and the environment, both inside and outside the EU, European multinationals should demonstrate transparency and publish accurate information regarding their impacts on people and the environment, non-European citizens, whose rights have been violated by European companies, should have access to justice within the EU.",
+        "actionDomains": "Human/Fundamental rights, Trade/Economy",
+        "kindsOfAction": "Advocacy, Education/Literacy, Protest"
+      }
+    ]
+  },
+  "cdes||quito||ecuador": {
+    "name": "CDES",
+    "city": "Quito",
+    "country": "Ecuador",
+    "type": "Independent research institute",
+    "website": "https://cdes.org.ec/",
+    "projects": [
+      {
+        "name": "Caso Furukawa",
+        "website": "https://cdes.org.ec/caso-furukawa/",
+        "countries": "Spain",
+        "description": "The project aims to promote an institutional legal framework that enables the enforcement of the human rights of survivors of modern slavery and child labor in Ecuador. This will be pursued through strengthening the organizational, legal, and socio-political advocacy capacities of rights-holders and duty-bearers who are victims of the #FurukawaNuncaMás case in the Abacá sector in the provinces of Esmeraldas, Santo Domingo, and Los Ríos.",
+        "actionDomains": "Human/Fundamental rights",
+        "kindsOfAction": "Advocacy, Education/Literacy"
+      }
+    ]
+  },
+  "center for cultural decontamination||belgrade||serbia": {
+    "name": "Center for Cultural Decontamination",
+    "city": "Belgrade",
+    "country": "Serbia",
+    "type": "NGO",
+    "website": "https://www.czkd.org/en/about-us/#:~:text=The%20Center%20for%20Cultural%20Decontamination%20%28CZKD%29%20is%20a,on%20critical%20thinking%2C%20and%20cultural%20and%20artistic%20production",
+    "projects": [
+      {
+        "name": "Diversity in Culture and Activism",
+        "website": "https://www.czkd.org/en/cycle/diversity-in-culture-and-activism/",
+        "countries": "Serbia",
+        "description": "The objective of the project is to use forms of culture as means to expand the public space in which civil society organizations and citizens can freely participate in public discourse, advocacy, community-building and decision-making on issues affecting Serbia’s democratization, regional relations and European Union (EU) integration.",
+        "actionDomains": "Democracy",
+        "kindsOfAction": "community building"
+      }
+    ]
+  },
+  "climate action network (can) europe||brussels||belgium": {
+    "name": "Climate Action Network (CAN) Europe",
+    "city": "Brussels",
+    "country": "Belgium",
+    "type": "Network",
+    "website": "https://caneurope.org/",
+    "projects": [
+      {
+        "name": "Unify: Bringing the EU together on climate action",
+        "website": "https://unify.caneurope.org/",
+        "countries": "Croatia, Czech Republic, France, Germany, Portugal",
+        "description": "“Unify: Bringing the EU together on climate action” aims to facilitate the effective and early transition of Member States across Europe to low carbon and resilient economies by unifying three key policy opportunities: programming of EU funds, National Energy and Climate Plans (NECPs) and national and the EU’s Long Term Strategies. Through its targeted activities in 10 Member States and at the EU level, the Unify project showcases that if these three key EU policy processes are consistent, ambitious and in line with the Paris Agreement objectives, they could help all EU Member States to step up climate action. Through underlining the importance of alignment between the national and the EU’s long term strategies, National energy and climate plans and the local level climate and energy action plans (SECAPs), the UNIFY project reminds the importance of consistency in climate action at different levels.",
+        "actionDomains": "Energy/Climate/Sustainability",
+        "kindsOfAction": "Advocacy, Capacity Building, Monitoring, Research"
+      }
+    ]
+  },
+  "collettivo di fabbrica - lavoratori gkn firenze||campi bisenzio||italy": {
+    "name": "Collettivo Di Fabbrica - Lavoratori Gkn Firenze",
+    "city": "Campi Bisenzio",
+    "country": "Italy",
+    "type": "Activist/grassroot group",
+    "website": "https://insorgiamo.org",
+    "projects": [
+      {
+        "name": "IL FUTURO (IR)ROMPE",
+        "website": "https://insorgiamo.org/il-futuro-irrompe/",
+        "countries": "Italy",
+        "description": "Protesting against financial speculation and for an ecological socially integrated factory that is publicly owned and cooperatively managed with popular shareholding.",
+        "actionDomains": "Energy/Climate/Sustainability, Trade/Economy",
+        "kindsOfAction": "Protest"
+      }
+    ]
+  },
+  "comissão para ação sociotransformadora - cepast-cnbb||brasília||brazil": {
+    "name": "Comissão para Ação Sociotransformadora - CEPAST-CNBB",
+    "city": "Brasília",
+    "country": "Brazil",
+    "type": "Network",
+    "website": "https://cepastcnbb.org.br/",
+    "projects": [
+      {
+        "name": "Comissão Episcopal para Ecologia Integral e Mineração (CEEM)",
+        "website": "https://cepastcnbb.org.br/quem-somos-comissao-para-a-ecologia-integral-e-mineracao/",
+        "countries": "Brazil",
+        "description": "The Special Episcopal Commission for Integral Ecology and Mining (CEEM) is a body of the National Conference of Bishops of Brazil (CNBB), created in 2017, with the mission of advising bishops and the CNBB on the socio-environmental challenges caused by the predatory extractive model, proposing pastoral responses inspired by the paradigm of Integral Ecology. Illuminated by the encyclical Laudato Si' and the local context presented in its manifesto \" Integral Ecology: a narrative to confront the planetary socio-environmental crisis ,\" we seek to promote a national project based on the defense of life and the care of Creation, the sharing of common goods, and intergenerational justice. Our mission is accomplished through supporting communities. We offer support to dioceses and communities affected by predatory extraction, encouraging the protection of their territories and rights, Knowledge Production. We develop and disseminate studies, public statements, and opinions that critically analyze the impacts of mining and large projects, highlighting the responsibility of companies and public authorities, Political Advocacy. We work with the executive, legislative, and judicial branches in Brazil and participate in international forums, such as the UN Human Rights Commission and dialogues in the Vatican, to defend biomes, indigenous peoples, and our Common Home, Networking. We work in partnership with organizations such as the Churches and Mining Network, the Conference of Religious of Brazil and Latin America (CRB and CLAR), and social movements to strengthen solidarity and the search for alternatives to the extractive model.",
+        "actionDomains": "Energy/Climate/Sustainability, Human/Fundamental rights",
+        "kindsOfAction": "Advocacy, Capacity Building, Research"
+      }
+    ]
+  },
+  "comissão pastoral da terra (cpt)||goiás||brazil": {
+    "name": "Comissão pastoral da Terra (CPT)",
+    "city": "Goiás",
+    "country": "Brazil",
+    "type": "NGO",
+    "website": "https://cptnacional.org.br/",
+    "projects": [
+      {
+        "name": "Denunciation of human-rights violations to EU Delegation",
+        "website": "https://cptnacional.org.br/2024/03/27/movimentos-sociais-do-campo-denunciam-governo-caiado-junto-a-uniao-europeia/",
+        "countries": "Brazil",
+        "description": "Representatives of rural social movements and human-rights organizations met with the delegation of the European Union in Brasília to report alleged human-rights violations against peasant communities and traditional populations in the Brazilian state of Goiás. During the meeting, organizations linked to Comissão Pastoral da Terra and other rural movements presented testimonies and data on land conflicts, threats, attacks on encampments, and the criminalization of social movements, urging EU representatives to consider these issues in cooperation and economic agreements with Brazil.",
+        "actionDomains": "Democracy, Human/Fundamental rights",
+        "kindsOfAction": "Advocacy, Monitoring"
+      }
+    ]
+  },
+  "conciudadanía||medellín||colombia": {
+    "name": "Conciudadanía",
+    "city": "Medellín",
+    "country": "Colombia",
+    "type": "NGO",
+    "website": "https://conciudadania.org/",
+    "projects": [
+      {
+        "name": "Environmental Citizenship for Water Use in Antioquia (Ciudadanía ambiental para el uso del agua en Antioquia)",
+        "website": "https://conciudadania.org/proyectos/salvaguarda-ciudadania-ambiental-para-el-uso-del-agua-en-antioquia/",
+        "countries": "Colombia",
+        "description": "Support for environmental committees and collectives in 36 municipalities of Antioquia to strengthen advocacy, social oversight of public environmental management, and actions for the care and protection of natural heritage in their territories. Assistance to nine watershed councils within the jurisdictions of Cornare, Corantioquia, and Corpourabá to monitor projects under the Watershed Management and Planning Plans and address socio-environmental conflicts in the basins. Additionally, support for 20 rural aqueducts to improve their water sources and infrastructure works.",
+        "actionDomains": "Energy/Climate/Sustainability",
+        "kindsOfAction": "Capacity Building, Education/Literacy"
+      },
+      {
+        "name": "Weaving Joint Actions (Tejiendo acciones conjuntas)",
+        "website": "https://tejiendoacciones.org/TAC",
+        "countries": "Colombia",
+        "description": "Within this framework, the project Weaving Joint Actions was developed with the overall purpose of strengthening civil society’s capacity to effectively influence development, democracy, and peace policies in Colombia. Specifically, it aims to enhance the capacities of platforms, networks, and civil society organizations in Antioquia and Bogotá for citizen participation, social oversight, self-sustainability, and social innovation.",
+        "actionDomains": "Conflict/War, Democracy, Human/Fundamental rights",
+        "kindsOfAction": "Capacity Building, Education/Literacy, Peacebuilding"
+      }
+    ]
+  },
+  "cospe ets||florence||italy": {
+    "name": "COSPE ETS",
+    "city": "Florence",
+    "country": "Italy",
+    "type": "NGO",
+    "website": "https://www.cospe.org/",
+    "projects": [
+      {
+        "name": "GRANDE! – Giovani stRanieri Accompagnati Nei percorsi Di InclusionE",
+        "website": "https://percorsiconibambini.it/grande/",
+        "countries": "Italy",
+        "description": "The \"GRANDE!\" project aims to support young unaccompanied foreigners in their transition to adulthood, a phase that exposes them to multiple risks. The goal is to provide them with the tools and support needed for effective social and employment inclusion, reducing the risk of marginalization and exploitation.",
+        "actionDomains": "Human/Fundamental rights, Migration",
+        "kindsOfAction": "Advocacy, Capacity Building"
+      }
+    ]
+  },
+  "creación positiva||barcelona||spain": {
+    "name": "Creación Positiva",
+    "city": "Barcelona",
+    "country": "Spain",
+    "type": "Association (e.g. foundation, union, council, charity, etc)",
+    "website": "https://www.creacionpositiva.org/",
+    "projects": [
+      {
+        "name": "Acogidas Feministas – Transformamos Juntas",
+        "website": "https://www.creacionpositiva.org/acto-en-el-parlamento-europeo-acogidas-feministas-transformamos-juntas/",
+        "countries": "Belgium, Spain",
+        "description": "Presentamos la herramienta ‘Reflexiones y propuestas para la incorporación de la perspectiva feminista interseccional en la acogida en Catalunya’ en el acto ‘Contextos fronterizos y modelos de acogida para mujeres, adolescentes y niñez migradas en Europa y Mesoamérica’ en el Parlamento Europeo.",
+        "actionDomains": "Human/Fundamental rights, Migration",
+        "kindsOfAction": "Advocacy, Education/Literacy, Research"
+      }
+    ]
+  },
+  "croatian youth network||zagreb||croatia": {
+    "name": "Croatian Youth Network",
+    "city": "Zagreb",
+    "country": "Croatia",
+    "type": "NGO",
+    "website": "https://mmh.hr/",
+    "projects": [
+      {
+        "name": "Citizenship ED+ Active Citizenship Through Cross-Sectoral Cooperation",
+        "website": "",
+        "countries": "Croatia, Estonia, France, Slovenia",
+        "description": "The Citizenship ED+ project is a collaborative initiative aimed at enhancing active citizenship education among young Europeans. The project’s primary goals are to empower young Europeans through active citizenship, provide educators and youth workers with effective and innovative teaching methodologies and tools, and advocate for structured active citizenship education. Key objectives include developing a comprehensive 30-hour curriculum, based on experiential learning in local communities and implementing this curriculum in 8 high schools across 4 countries, involving at least 200 students. Additionally, the project aims to develop and distribute guidelines for teaching active citizenship and launch an advocacy campaign with educational authorities. The initiative will culminate in a final expert international conference, showcasing the achievements and community impacts realised by young participants.",
+        "actionDomains": "Active Citizenship, Democracy, Digital Technology",
+        "kindsOfAction": "Advocacy, Capacity Building, Education/Literacy, Research"
+      },
+      {
+        "name": "EU youth dialog Croatia",
+        "website": "",
+        "countries": "Croatia",
+        "description": "The Croatian Youth Network (MMH) is the national coordinator of the EU Youth Dialogue in Croatia — a European process that fosters structured communication between young people and decision-makers. Through consultations, events, and participatory mechanisms, the Dialogue enables young people to express their views on issues that affect them and to influence national and EU youth policies. MMH coordinates the process in cooperation with youth organizations, institutions, and public authorities.",
+        "actionDomains": "Democracy, Digital Technology",
+        "kindsOfAction": "Advocacy, Education/Literacy, Research"
+      },
+      {
+        "name": "The fight for the right to participation and representation",
+        "website": "",
+        "countries": "Croatia",
+        "description": "This project focuses on ensuring fair political participation of young people in response to recent amendments to the Law on Youth Councils. Through strategic meetings and digital dialogues, it promotes transparency, democratic values, and justice in youth-related decision-making processes in Croatia. The project runs from 9 January to 8 July 2024. Its main goals are to advocate for equal access to political processes, strengthen democratic principles and transparency, raise awareness of the impact of legislative changes, and build alliances with youth organizations and decision-makers to enhance youth participation and public dialogue.",
+        "actionDomains": "Democracy, Human/Fundamental rights",
+        "kindsOfAction": "Advocacy, Capacity Building"
+      }
+    ]
+  },
+  "cáritas brasileira||brasília||brazil": {
+    "name": "Cáritas Brasileira",
+    "city": "Brasília",
+    "country": "Brazil",
+    "type": "NGO",
+    "website": "https://caritas.org.br/",
+    "projects": [
+      {
+        "name": "Europana – Dignidade sem Fronteiras",
+        "website": "https://caritas.org.br/projeto/24",
+        "countries": "Brazil, Colombia, Ecuador, Peru, Venezuela",
+        "description": "The project's objective is to contribute to ensuring safe and informed migration, as well as filling critical gaps in humanitarian assistance and integration for vulnerable Venezuelan citizens, both within Venezuela and in host countries. This includes, in particular, women, children, indigenous populations, the elderly, and people with disabilities.",
+        "actionDomains": "Human/Fundamental rights, Migration",
+        "kindsOfAction": "Aid, Capacity Building, Education/Literacy, Monitoring"
+      }
+    ]
+  },
+  "dah teatar||belgrade||serbia": {
+    "name": "DAH Teatar",
+    "city": "Belgrade",
+    "country": "Serbia",
+    "type": "Activist/grassroot group",
+    "website": "https://en.dahteatarcentar.com/",
+    "projects": [
+      {
+        "name": "In/Visible City",
+        "website": "https://en.dahteatarcentar.com/eu-projects/in-visible-city/",
+        "countries": "Brazil, Denmark, France, Italy, North Macedonia, Norway, Serbia, United Kingdom",
+        "description": "The main goal of the “In/Visible City” project is to make the multi-ethnic structure of cities and the richness of different cultures more visible in urban context in which such structures and richness have been hidden due to conflict, populism and/or growing xenophobia. By performing in public transport “In/Visible City” looks at the positive aspects of cultural and national diversity, the history of our cities created by many peoples in which they have woven their culture, customs and creativity. The performances in public city transport tells the history of our multi-ethnic and diverse cities. Through the project we aim to contribute to the normalization of relations between different ethnic communities living in Serbia and beyond, to the development of a civil society based on tolerance.",
+        "actionDomains": "Conflict/War, Migration",
+        "kindsOfAction": "Socially Engaged Art"
+      },
+      {
+        "name": "The Power of Remembrance",
+        "website": "https://en.dahteatarcentar.com/performances/presence-of-absence/",
+        "countries": "Serbia",
+        "description": "The project deals with post-traumatic memory, specifically – the memory kept by family members of missing persons, separated from their closest environments. The project consists of a research process, a musical installation and the play “The Presence of Absence”. By creating a play based on exploring the meaning of that memory, the goal behind the project is to help families who have had this difficult experience to transform it into a kind of meaning with which they can continue to live, as well as to help the process of dealing with the past in our area.",
+        "actionDomains": "Conflict/War",
+        "kindsOfAction": "socially engaged art"
+      },
+      {
+        "name": "Trees",
+        "website": "https://en.dahteatarcentar.com/eu-projects/trees/",
+        "countries": "Germany, Greece, Ireland, Netherlands, Norway, Serbia, Spain",
+        "description": "Trees gathered artist and researchers from seven countries: Germany, Greece, Ireland, Norway, The Netherlands, Spain and Serbia, with a common goal to raise environmental awareness and to activate citizens in protecting trees and against climate changes. The project aims to to further develop and transfer at the European level a method of raising environmental awareness through the use of theatre.",
+        "actionDomains": "Energy/Climate/Sustainability",
+        "kindsOfAction": "Socially engaged art"
+      }
+    ]
+  },
+  "diem25||brussels||belgium": {
+    "name": "DiEM25",
+    "city": "Brussels",
+    "country": "Belgium",
+    "type": "NGO",
+    "website": "https://diem25.org/",
+    "projects": [
+      {
+        "name": "Back The Hague Group",
+        "website": "https://act.diem25.org/hague-group/",
+        "countries": "France, Germany, Greece, Italy, Spain",
+        "description": "Attempts to get MEP's to support The Hague Group - coalition of states from the Global South taking coordinated legal action to end the genocide in Gaza and hold Israeli officials accountable for grave breaches of international law.",
+        "actionDomains": "Conflict/War, Human/Fundamental rights",
+        "kindsOfAction": "Advocacy"
+      }
+    ]
+  },
+  "entwicklungspolitisches netzwerk hessen||frankfurt (am main)||germany": {
+    "name": "Entwicklungspolitisches Netzwerk Hessen",
+    "city": "Frankfurt (Am Main)",
+    "country": "Germany",
+    "type": "Network",
+    "website": "https://www.epn-hessen.de/",
+    "projects": [
+      {
+        "name": "fern:welt:nah",
+        "website": "https://www.epn-hessen.de/projekte/fernweltnah/",
+        "countries": "Germany",
+        "description": "We critically discuss various social and environmental injustices over four to five evening events, explore the conditions for sustainable change, and present alternative courses of action. In doing so, we build diverse bridges between Global South and North and North to South. Our general focus: to address global imbalances through local initiatives and solidarity partnerships!",
+        "actionDomains": "Democracy, Energy/Climate/Sustainability, Human/Fundamental rights, Migration",
+        "kindsOfAction": "Advocacy, Education/Literacy"
+      }
+    ]
+  },
+  "eu-lac||hamburg||germany": {
+    "name": "EU-LAC",
+    "city": "Hamburg",
+    "country": "Germany",
+    "type": "International organization",
+    "website": "https://eulacfoundation.org/",
+    "projects": [
+      {
+        "name": "EU-LAC WIN",
+        "website": "https://eulacfoundation.org/en/eulacwin",
+        "countries": "Argentina, Dominican Republic, Germany, Mexico, Spain",
+        "description": "The EU-LAC Women's International Network (EU-LAC WIN) is an initiative promoted by the EU-LAC Foundation to strengthen the role of women in bi-regional cooperation between the European Union and Latin America and the Caribbean. Its main objective is encouraging the adoption of public policies that promote gender equality. The Network aspires to deepen the approach to the structural causes of gender inequalities and offer innovative solutions to priority lines: gender and climate action, social development and the care economy, and women's political participation.",
+        "actionDomains": "Democracy, Human/Fundamental rights",
+        "kindsOfAction": "Advocacy, Education/Literacy, Research"
+      }
+    ]
+  },
+  "eurasia foundation of central asia||almaty||kazakhstan": {
+    "name": "Eurasia Foundation of Central Asia",
+    "city": "Almaty",
+    "country": "Kazakhstan",
+    "type": "NGO",
+    "website": "http://en.ef-ca.kz/",
+    "projects": [
+      {
+        "name": "Your Voice Matters, Civic Tech Solutions for Decision-making",
+        "website": "http://en.ef-ca.kz/news/fond/European_Union_supports_more_act",
+        "countries": "Kazakhstan, Kyrgyzstan, Uzbekistan",
+        "description": "EFCA will implement the project “Your Voice Matters, Civic Tech Solutions for Decision-making” in close partnership with Public Foundation “ITeachMe” Competence Development Center”. The project will contribute to increased participation of women and youth in decision-making and improved digital literacy rate. It will be implemented from January 2022 to January 2024 in major regions of Kazakhstan. The total budget of the project: EUR 277,738, including the EU contribution of EUR 249,964.",
+        "actionDomains": "Human/Fundamental rights",
+        "kindsOfAction": "Capacity Building"
+      }
+    ]
+  },
+  "europa-union deutschland e.v.||berlin||germany": {
+    "name": "Europa-Union Deutschland e.V.",
+    "city": "Berlin",
+    "country": "Germany",
+    "type": "NGO",
+    "website": "https://www.europa-union.de/",
+    "projects": [
+      {
+        "name": "#EurHope",
+        "website": "",
+        "countries": "Germany",
+        "description": "‘#EurHope’ was the political campaign for the 2024 European elections, organised by Europa-Union Deutschland (EUD) together with the youth association Young European Federalists (JEF) and international partners. The campaign was motivated by the impression that democracy and the rule of law in Europe are coming under increasing pressure and aimed to raise public awareness of the 2024 European elections and motivate the population to vote pro-European.",
+        "actionDomains": "Democracy",
+        "kindsOfAction": "Campaign, Education/Literacy"
+      },
+      {
+        "name": "Bürgerdialoge",
+        "website": "",
+        "countries": "Germany",
+        "description": "As Germany's largest non-partisan membership association for Europe, Europa-Union Deutschland (EUD, the German branch of the Union of European Federalists) aims to promote public discourse on current European issues and provide critical, constructive support through its ‘Bürgerdialoge’ (citizen dialogues) – independently and non-partisanly. Citizens are brought into conversation with experts and politicians to support people's participation in the future of the European project. The regional relevance of European politics is always an important factor here.",
+        "actionDomains": "Democracy",
+        "kindsOfAction": "Capacity Building, Education/Literacy, Participation"
+      },
+      {
+        "name": "Deutschland wählt − Demokratie-Workshops für junge Menschen",
+        "website": "",
+        "countries": "Germany",
+        "description": "At the beginning of 2025, Europa-Union Deutschland (EUD) launched a new school project to get young people excited about democratic processes and European politics. ‘Germany votes – democracy workshops for young people’ is the title of the project, which is funded by the German Postcode Lottery Foundation and aimed at school pupils aged between 14 and 22. Due to the early federal elections in February 2025, the project was adapted into two phases.",
+        "actionDomains": "Democracy",
+        "kindsOfAction": "Education/Literacy"
+      }
+    ]
+  },
+  "europe without barriers||kyiv||ukraine": {
+    "name": "Europe without Barriers",
+    "city": "Kyiv",
+    "country": "Ukraine",
+    "type": "NGO",
+    "website": "https://english.europewb.org.ua/",
+    "projects": [
+      {
+        "name": "Building safe and humane borders through the public assessment of the Polish-Ukrainian border",
+        "website": "https://english.europewb.org.ua/building-safe-and-human-borders/",
+        "countries": "Poland",
+        "description": "The project aims to form a comprehensive vision of the problem of Ukrainian-Polish border, to find out the hidden obstacles for the development of border communities in the context of people contacts and to increase the civil society impact on solving these problems in order to create humane conditions for crossing the border for all categories of travelers, as well as to distribute best practices of local communities.",
+        "actionDomains": "Migration, Trade/Economy",
+        "kindsOfAction": "Monitoring, Research"
+      },
+      {
+        "name": "Promoting evidence-based media coverage of labour migration from Ukraine to V4 countries",
+        "website": "https://english.europewb.org.ua/evidence-based-media-coverage-v4/",
+        "countries": "Czech Republic, Hungary, Poland, Slovakia",
+        "description": "The project is aimed at widespreading in popular media of detailed and argumentative data about the new labour legislation in V4 countries, methods of legal employment, sources of statistical data and expert interpretation. International team of researchers from Ukraine, Poland, Czechia, Slovakia and Hungary will create a guide “Myths and stereotypes about Ukrainian labour migration to V4 countries”, covering media image of labour migration from Ukraine in media of 5 countries, analyzing the most common mistakes and myths, providing sources of trusted data for journalists, state officials and public persons who intend to make public statements about labour migration. Project includes a workshop-presentation for Ukrainian journalists and experts in Kyiv with participation of foreign co-authors of the guide, and a series of presentations of the guide in V4 countries’ capitals. Also Europe without Barriers will coordinate a 3-month competition for Ukrainian journalists in 5 categories: the best analytic publication, best explainer (“how to”), best reportage, best interview, best TV/radio program about labour migration to V4 countries.",
+        "actionDomains": "Human/Fundamental rights, Trade/Economy",
+        "kindsOfAction": "Capacity Building, Monitoring, Research"
+      },
+      {
+        "name": "Strengthening dialogue on border management between civil society and authorities",
+        "website": "https://english.europewb.org.ua/strengthening-dialogue-on-border-management-between-civil-society-and-authorities/",
+        "countries": "Germany, Poland, Sweden",
+        "description": "The field of border management has traditionally been perceived as a restrited security policy area with no room for democratic public participation. In 2019, the Government of Ukraine approved the Strategy for Integrated Border Management until 2025 which anticipates horizontal cooperation between all stakeholders within the border management processes. However, the involvement of civil society into the border management remains a new and unresolved issue. Local communities do not know how they can get involved in addressing border issues. The project aims to establish a dialogue between border management entities and representatives of border communities (Volyn, Lviv, Zakarpattia, Ivano-Frankivsk, Chernivtsi, Odessa regions) and to initiate the exchange of professional information on border issues. The project envisages a series of online meetings and discussions with representatives of central government and local communities, the results and conclusions of which will be published in the public domain, as well as a number of media materials on the topic of the border management.",
+        "actionDomains": "Democracy, Human/Fundamental rights, Trade/Economy",
+        "kindsOfAction": "Capacity Building, Research"
+      }
+    ]
+  },
+  "european coordination via campesina||brussels||belgium": {
+    "name": "European Coordination Via Campesina",
+    "city": "Brussels",
+    "country": "Belgium",
+    "type": "Network",
+    "website": "https://www.eurovia.org/",
+    "projects": [
+      {
+        "name": "Opposition to EU-Mercosur Trade Agreement",
+        "website": "https://www.eurovia.org/news/united-call-by-eu-farmers-and-agricultural-workers-organisations-to-oppose-the-eu-mercosur-trade-agreement/",
+        "countries": "Argentina, Brazil, Paraguay, Uruguay",
+        "description": "We, the undersigned organisations representing the diverse interests of European farmers and agricultural workers – COPA-COGECA, CEJA, ECVC and EFFAT – urge you to firmly oppose the conclusion of the EU-Mercosur trade agreement in its current form. This proposed Free Trade Agreement would cause irreversible harm to vulnerable sectors within European agriculture and seriously undermine the principles of food sovereignty. It disregards the calls of farmers and agricultural workers to ensure fair competition and a decent income.",
+        "actionDomains": "Human/Fundamental rights, Trade/Economy",
+        "kindsOfAction": "Advocacy, Policy lobbying"
+      }
+    ]
+  },
+  "fdcl - forschungs- und dokumentationszentrum chile-lateinamerika||berlin||germany": {
+    "name": "FDCL - Forschungs- und Dokumentationszentrum Chile-Lateinamerika",
+    "city": "Berlin",
+    "country": "Germany",
+    "type": "NGO",
+    "website": "https://www.fdcl.org/",
+    "projects": [
+      {
+        "name": "EU Carbon Removal Policy Briefing",
+        "website": "https://www.fdcl.org/2025/06/greenwashing-carbon-removal/",
+        "countries": "France, Germany, Netherlands, Poland, Sweden",
+        "description": "Urgent action is needed to ensure the upcoming EU carbon removal rules for biomass-based activities are cost-effective and do not worsen the climate crisis.",
+        "actionDomains": "Energy/Climate/Sustainability",
+        "kindsOfAction": "Advocacy, Research"
+      }
+    ]
+  },
+  "fian alemania||heidelberg||germany": {
+    "name": "FIAN Alemania",
+    "city": "Heidelberg",
+    "country": "Germany",
+    "type": "NGO",
+    "website": "https://www.fian.de/",
+    "projects": [
+      {
+        "name": "Pesticides and Right to Food Research",
+        "website": "https://www.fian.de/aktuelles/pestizide-deutscher-hersteller-fuer-vergiftungen-verantwortlich/",
+        "countries": "Brazil, Ecuador, Guatemala, Haiti, Honduras",
+        "description": "The human rights organization FIAN criticizes the unchecked use of pesticides in Latin America and the Caribbean. FIAN examines the use of agrochemicals in Brazil, Colombia, Ecuador, Guatemala, Haiti, Honduras, Mexico, and Paraguay. The application, storage, and disposal of pesticides there are associated with significant risks, millions of people fall victim to poisoning every year.",
+        "actionDomains": "Human/Fundamental rights, Trade/Economy",
+        "kindsOfAction": "Advocacy, Research"
+      }
+    ]
+  },
+  "fridays for future||stockholm||sweden": {
+    "name": "Fridays for Future",
+    "city": "Stockholm",
+    "country": "Sweden",
+    "type": "Activist/grassroot group",
+    "website": "https://eci.fridaysforfuture.org/en/",
+    "projects": [
+      {
+        "name": "Economic Research Center",
+        "website": "https://ercenter.eu/",
+        "countries": "Azerbaijan, Germany, United Kingdom",
+        "description": "Economic Research Centre (ERC) is a policy research oriented think tank established in 1999. The Center is conducting regular research on macro-economic policy, including conceptual definitions, calculation, and modeling of alternative macro-economic indicators. Moreover, ERC contributes to analyses of public finance management policy (PFMP), particularly the process of good governance and budget transparency at national and local level. The Center also conducts research on assessing financial efficiency and outcomes of social programs (specifically, in the field of health and education) as well as household-level budget analyses. Furthermore, ERC designs and implements capacity building programs for local civil society organizations (CSOs).",
+        "actionDomains": "Conflict/War, Democracy, Energy/Climate/Sustainability, Human/Fundamental rights, Trade/Economy",
+        "kindsOfAction": "Advocacy, Capacity Building, Monitoring, Protest, Research"
+      }
+    ]
+  },
+  "friends of the earth europe||brussels||belgium": {
+    "name": "Friends of the Earth Europe",
+    "city": "Brussels",
+    "country": "Belgium",
+    "type": "Network",
+    "website": "https://friendsoftheearth.eu",
+    "projects": [
+      {
+        "name": "Real Zero Europe Campaign",
+        "website": "https://friendsoftheearth.eu/publication/real-zero-europe-campaign-statement/",
+        "countries": "Belgium, France, Germany, Italy, Spain",
+        "description": "To avoid the worst effects of climate chaos, we must radically transform, equitably and justly, the way we produce our food, manage our ecosystems, and power our economies. We must urgently deploy real and proven, socially just and people-led solutions and dramatically reduce greenhouse gas emissions at source, down to Real Zero. Real Zero Europe is a campaign bringing together climate, environmental, economic justice, human rights, and food sovereignty organisations, to scrap the European Commission’s carbon removal certification law, to resist Europe’s ‘net zero’ false solutions, and to apply pressure on the EU and European nations to take action now towards real, deep emissions cuts.",
+        "actionDomains": "Energy/Climate/Sustainability",
+        "kindsOfAction": "Advocacy, Capacity Building"
+      }
+    ]
+  },
+  "friends of the earth international||amsterdam||netherlands": {
+    "name": "Friends of the Earth International",
+    "city": "Amsterdam",
+    "country": "Netherlands",
+    "type": "International organization",
+    "website": "https://www.foei.org",
+    "projects": [
+      {
+        "name": "Fossil Free Europe Campaign",
+        "website": "https://friendsoftheearth.eu/what-we-do/climate-justice-and-energy/fossil-fuels/",
+        "countries": "Austria, Belgium, France, Germany, Ireland",
+        "description": "he fossil fuel era must end. We need an urgent and just transformation to a fossil-free Europe by 2030. Extraction and burning of coal, gas and oil is heating the planet and destroying communities, hitting the poorest hardest. People in the Global South, Black, Indigenous, People of Colour, women, youth, and those on low incomes are disproportionately affected. More than two-thirds of man-made greenhouse gas emissions come from the fossil fuel industry. They rake in billions in profits, while making the planet increasingly uninhabitable. European governments, pushed by the fossil fuel industry, continue to finance climate destruction, notably spending billions on fossil gas infrastructure. Friends of the Earth Europe campaigns to stop governments, the EU, and banks financing more fossil fuels – particularly through investments in fossil gas pipelines. We also hold fossil fuel companies to account, and work to cut them out of our political systems as part of our campaign for Fossil Free Politics.",
+        "actionDomains": "Energy/Climate/Sustainability",
+        "kindsOfAction": "Advocacy, Protest, Research"
+      }
+    ]
+  },
+  "fundación lazos de dignidad||bogotá||colombia": {
+    "name": "Fundación Lazos de Dignidad",
+    "city": "Bogotá",
+    "country": "Colombia",
+    "type": "NGO",
+    "website": "https://www.lazosdedignidad.org/",
+    "projects": [
+      {
+        "name": "Constructores de Paz: Una estrategia de reincorporación social y económica para la reconciliación y fortalecimiento del desarrollo local",
+        "website": "https://www.fondoeuropeoparalapaz.eu/project/constructores-de-paz/",
+        "countries": "Colombia",
+        "description": "The general objective is to contribute to the social and economic reintegration of ex-combatants, fostering reconciliation with the community in the municipalities of Fonseca and Manaure. The focus is on developing productive projects in the construction sector with a comprehensive, inclusive, and territorial approach. This action is part of the main proposal for social and economic reintegration in the Colombian Caribbean, linked to housing construction and rehabilitation and productive environments. Activities aim to complement and strengthen this reintegration strategy, generating skills and impacting regional reconciliation and local development. The initiative improves conditions for the reintegrated population, boosts the construction sector, and promotes employability in the border region, initially benefiting both ETCR populations, their families, and surrounding communities through job training. In a second phase, the establishment of productive units in the construction sector will provide employment and income opportunities for ex-combatants and local communities.",
+        "actionDomains": "Conflict/War",
+        "kindsOfAction": "Capacity Building, Education/Literacy"
+      }
+    ]
+  },
+  "gesellschaft für bedrohte völker (gfbv)||göttingen||germany": {
+    "name": "Gesellschaft für bedrohte Völker (GfbV)",
+    "city": "Göttingen",
+    "country": "Germany",
+    "type": "NGO",
+    "website": "https://www.gfbv.de/",
+    "projects": [
+      {
+        "name": "VOICES",
+        "website": "https://gfbv-voices.org/en/",
+        "countries": "Austria, Germany, Italy, Switzerland",
+        "description": "The GfbV stands up for the rights of ethnic, religious and linguistic autochthonous minorities and nationalities as well as for their minorities and nationalities as well as for the individual and collective rights of indigenous peoples. It is committed to the protection of civilian populations from the most serious human rights violations and to prevent crimes against humanity and genocide. We see human rights as universal, indivisible and inalienable. In accordance with our motto “A voice for those who have no voice”, the GfbV’s particular focus is on nationalities, minorities and indigenous peoples, as well as victims of severe human rights barely noticed by the public.",
+        "actionDomains": "Conflict/War, Democracy, Human/Fundamental rights",
+        "kindsOfAction": "Advocacy, Education/Literacy, Media/Communication platform"
+      }
+    ]
+  },
+  "global forest coalition||amsterdam||netherlands": {
+    "name": "Global Forest Coalition",
+    "city": "Amsterdam",
+    "country": "Netherlands",
+    "type": "Network",
+    "website": "https://globalforestcoalition.org/",
+    "projects": [
+      {
+        "name": "Beyond Bioenergy",
+        "website": "https://globalforestcoalition.org/beyond-bioenergy/",
+        "countries": "Bolivia, Colombia, Ghana, Liberia",
+        "description": "Forest loss threatens ecosystems and the lives, livelihoods, and traditions of many communities, disproportionately impacting women in all their diversity, Indigenous Peoples, and Afro-descendant and rural communities. It deepens gender inequalities, increases women’s burden of labour, and limits their access to resources and decision-making power. Our Gender Justice and Forests Campaign promotes decolonial, feminist approaches to forest conservation that centre the rights, knowledge, and leadership of women in all their diversity. We work with our members to dismantle intersecting systems of oppression, reduce gender gaps, and ensure inclusive, community-led forest governance that values care, equity, and collective power as essential to climate and environmental justice.",
+        "actionDomains": "Democracy, Energy/Climate/Sustainability, Human/Fundamental rights",
+        "kindsOfAction": "Advocacy, Capacity Building, Education/Literacy, Monitoring, Research"
+      }
+    ]
+  },
+  "grain||barcelona||spain": {
+    "name": "GRAIN",
+    "city": "Barcelona",
+    "country": "Spain",
+    "type": "NGO",
+    "website": "https://grain.org/",
+    "projects": [
+      {
+        "name": "Research on EU-Mercosur Agricultural Trade Impacts",
+        "website": "https://grain.org/e/6356",
+        "countries": "Argentina, Brazil, Netherlands, Paraguay, Uruguay",
+        "description": "El acuerdo comercial Unión Europea-Mercosur intensificará la crisis climática provocada por la agricultura. La imagen de las llamas arrasando el Amazonas en agosto de 2019 hizo que las personas en todo el mundo se dieran cuenta de la conexión entre los agronegocios y la crisis climática. La selva estaba siendo quemada para dar lugar a la producción de carne, soja y otras materias primas agrícolas y así aumentar las ganancias de las corporaciones transnacionales de alimentos. Un importante motor de esta devastación es el comercio. Actualmente, un nuevo acuerdo comercial amenaza con aumentar aún más la expansión de los agronegocios en Brasil, con serias consecuencias para el clima.",
+        "actionDomains": "Energy/Climate/Sustainability, Trade/Economy",
+        "kindsOfAction": "Advocacy, Research"
+      }
+    ]
+  },
+  "handel anders!||amsterdam||netherlands": {
+    "name": "Handel Anders!",
+    "city": "Amsterdam",
+    "country": "Netherlands",
+    "type": "Network",
+    "website": "https://handelanders.nl/en",
+    "projects": [
+      {
+        "name": "Exit ECT",
+        "website": "https://handelanders.nl/campagnes/ect/",
+        "countries": "Belgium, France, Germany, Netherlands, Spain",
+        "description": "Few people will ever have heard of it, but the Energy Charter Treaty (ECT) is a major obstacle to tackling climate change and achieving a “just transition.” The treaty offers energy multinationals the ability to sue governments when they implement policies that limit their profits. These claims bypass national courts, often in secret tribunals, and can lead to companies filing claims against policies that benefit us all, such as climate policy. The fossil fuel industry gratefully takes advantage of this opportunity and is driving up the costs of the energy transition further with billion-dollar claims. Thanks to a successful campaign, the Netherlands has announced its intention to withdraw from this treaty. That announcement is a victory, but Handel Anders! is monitoring whether this will actually happen and is fighting for the complete dissolution of this treaty, of which dozens of countries are members.",
+        "actionDomains": "Democracy, Energy/Climate/Sustainability, Trade/Economy",
+        "kindsOfAction": "Advocacy, Education/Literacy, Monitoring, Protest, Research"
+      }
+    ]
+  },
+  "heñói centro de estudios||asunción||paraguay": {
+    "name": "Heñói Centro de Estudios",
+    "city": "Asunción",
+    "country": "Paraguay",
+    "type": "NGO",
+    "website": "https://henoi.org.py/index.php/en/home/",
+    "projects": [
+      {
+        "name": "Land and Territory Defense Advocacy",
+        "website": "",
+        "countries": "Brazil, Paraguay, Spain",
+        "description": "Works for the defence of territories, natural resources and the rights of Indigenous and rural communities.",
+        "actionDomains": "Energy/Climate/Sustainability, Human/Fundamental rights",
+        "kindsOfAction": "Advocacy, Monitoring"
+      }
+    ]
+  },
+  "humundi||brussels||belgium": {
+    "name": "Humundi",
+    "city": "Brussels",
+    "country": "Belgium",
+    "type": "NGO",
+    "website": "https://www.humundi.org/",
+    "projects": [
+      {
+        "name": "Stop Pesticides",
+        "website": "https://stop-pesticides.be/",
+        "countries": "Belgium, Peru",
+        "description": "The aim of this campaign is to denounce the export of pesticides that are banned in Europe, yet exported to countries in the Global South, highlighting Belgium’s predominant role in this damaging trade.",
+        "actionDomains": "Energy/Climate/Sustainability, Human/Fundamental rights, Trade/Economy",
+        "kindsOfAction": "Advocacy, Education/Literacy, Monitoring, Research"
+      }
+    ]
+  },
+  "jubileu sul brasil||são paulo||brazil": {
+    "name": "Jubileu Sul Brasil",
+    "city": "São Paulo",
+    "country": "Brazil",
+    "type": "Network",
+    "website": "https://jubileusul.org.br/",
+    "projects": [
+      {
+        "name": "Debt Justice / Debt and Climate Campaign",
+        "website": "https://jubileusul.org.br/cartilha-divida-publica-e-crise-climatica-mostra-como-questoes-economicas-e-ambientais-se-conectam-e-atingem-populacoes-vulneraveis/",
+        "countries": "Belgium, Brazil, France, Germany, Spain",
+        "description": "Jubilee South Brazil launches the booklet “ Public Debt and Climate Crisis: Understanding the Impacts on Our Lives ,” a popular education material that aims to reflect on the relationship between the debt system and the effects of climate change—especially on historically oppressed peoples and communities. Among other things, it critically analyzes wind energy projects (onshore and offshore) and mining, showing that, even under the label of \"clean energy,\" these ventures generate socio-environmental conflicts and directly affect the livelihoods of local populations. The booklet also highlights the role of women in the fight for climate justice and popular sovereignty, showing how gender, race, and class inequalities deepen in the face of the climate crisis and public debt. In this scenario, women are the most affected, whether by the overload of care work or by the intensified violence in the context of environmental disasters.",
+        "actionDomains": "Democracy, Energy/Climate/Sustainability, Trade/Economy",
+        "kindsOfAction": "Advocacy, Capacity Building, Education/Literacy, Research"
+      }
+    ]
+  },
+  "kazakhstan international bureau for human rights and rule of law||almaty||kazakhstan": {
+    "name": "Kazakhstan International Bureau for Human Rights and Rule of Law",
+    "city": "Almaty",
+    "country": "Kazakhstan",
+    "type": "NGO",
+    "website": "https://bureau.kz/en/",
+    "projects": [
+      {
+        "name": "Input for the EU’s Human Rights Dialogue with Kazakhstan",
+        "website": "",
+        "countries": "Kazakhstan",
+        "description": "Recommendations to the EU to address urgent concerns regarding civic space and fundamental freedoms in Kazakhstan. These include rising hostile rhetoric about alleged harmful foreign influence, and proposals for ‘’foreign agent’’ legislation and an ”LGBTI propaganda” ban, along with a criticised new media law, crackdowns on peaceful protest, politically motivated prosecutions of government critics, and continued widespread impunity for January 2022 abuses.",
+        "actionDomains": "Human/Fundamental rights",
+        "kindsOfAction": "Advocacy, Research"
+      }
+    ]
+  },
+  "konstanzer bündnis gerechter welthandel||konstanz||germany": {
+    "name": "Konstanzer Bündnis gerechter Welthandel",
+    "city": "Konstanz",
+    "country": "Germany",
+    "type": "Activist/grassroot group",
+    "website": "https://www.konstanz-gegen-ttip.de/",
+    "projects": [
+      {
+        "name": "Municipalities against TTIP, CETA and TiSA",
+        "website": "https://www.welthandel-konstanz.de/berichte/",
+        "countries": "Austria, Belgium, France, Germany, Netherlands",
+        "description": "Nos oponemos a los acuerdos de libre comercio TTIP, CETA y tratados similares porque ponen en peligro la democracia, la protección del medio ambiente y la protección del consumidor.",
+        "actionDomains": "Democracy, Trade/Economy",
+        "kindsOfAction": "Advocacy, Education/Literacy, Protest"
+      }
+    ]
+  },
+  "legal media-center||astana (nur-sultan)||kazakhstan": {
+    "name": "Legal Media-Center",
+    "city": "Astana (Nur-Sultan)",
+    "country": "Kazakhstan",
+    "type": "NGO",
+    "website": "https://www.lmc.kz/ru",
+    "projects": [
+      {
+        "name": "Promoting human rights by strengthening the capacity of media and NGOs",
+        "website": "https://www.lmc.kz/ru/about/nashi-proekty",
+        "countries": "Kazakhstan",
+        "description": "Promoting human rights by strengthening the capacity of media and NGOs",
+        "actionDomains": "Human/Fundamental rights",
+        "kindsOfAction": "Capacity Building"
+      }
+    ]
+  },
+  "mouvement d'action paysanne||brussels||belgium": {
+    "name": "Mouvement d'Action Paysanne",
+    "city": "Brussels",
+    "country": "Belgium",
+    "type": "NGO",
+    "website": "https://www.lemap.be/",
+    "projects": [
+      {
+        "name": "La Petite Foire Paysanne",
+        "website": "https://www.lemap.be/la-petite-foire-les-editions/la-petite-foire/",
+        "countries": "Belgium",
+        "description": "La Petite Foire Paysanne is an annual agroecology-focused event organized by the Mouvement d’Action Paysanne that brings together farmers, artisans, activists and citizens to promote alternative agricultural models. The initiative emerged as a counter-event to the large industrial-oriented agricultural fair of Libramont and aims to highlight small-scale farming, food sovereignty and agroecological practices. The event includes conferences, debates, demonstrations of agricultural techniques, and a farmers’ and artisans’ market that showcases local and sustainable food systems. The event serves as a meeting space for discussions on farmers’ rights, agroecology and food sovereignty, often referencing international frameworks such as the UN Declaration on the Rights of Peasants (UNDROP) and promoting alliances between farmers, citizens and civil society organizations working on sustainable agriculture.",
+        "actionDomains": "Democracy, Energy/Climate/Sustainability, Trade/Economy",
+        "kindsOfAction": "Advocacy, Capacity Building, Education/Literacy"
+      }
+    ]
+  },
+  "netzwerk gerechter welthandel||berlin||germany": {
+    "name": "Netzwerk gerechter Welthandel",
+    "city": "Berlin",
+    "country": "Germany",
+    "type": "Network",
+    "website": "https://www.gerechter-welthandel.org/",
+    "projects": [
+      {
+        "name": "EU mercosur stoppen",
+        "website": "https://www.gerechter-welthandel.org/2025/07/07/eu-mercosur-stoppen/",
+        "countries": "Argentina, Brazil, Germany, Paraguay, Uruguay",
+        "description": "In September 2025, government representatives from the 27 EU member states are scheduled to vote on the EU-Mercsosur agreement, and our Members of the European Parliament will follow shortly thereafter. That's why we must take action now and reach out to those who will soon have to decide on the future of this toxic trade agreement on our behalf.",
+        "actionDomains": "Energy/Climate/Sustainability, Human/Fundamental rights, Trade/Economy",
+        "kindsOfAction": "Advocacy, Education/Literacy, Protest"
+      }
+    ]
+  },
+  "oekumenisches europa-centrum frankfurt (oder) e.v.||frankfurt (oder)||germany": {
+    "name": "Oekumenisches Europa-Centrum Frankfurt (Oder) e.V.",
+    "city": "Frankfurt (Oder)",
+    "country": "Germany",
+    "type": "Community Organization",
+    "website": "https://www.oec-ff.de/index.php/de/",
+    "projects": [
+      {
+        "name": "Grenzgespräche",
+        "website": "",
+        "countries": "Germany, Poland",
+        "description": "The Oekumenisches Europa-Centrum e.V. (OEC) is a non-profit association committed to promoting interdenominational and interreligious dialogue with a focus on Eastern Europe. The ‘Grenzgespräche’ (Border Talks) lecture series on social and religious topics, which has been running for many years now, contributes to local reflection on Europe, understanding among citizens on the German-Polish border, and the joint exploration of value orientations.",
+        "actionDomains": "International/intercultural Understanding",
+        "kindsOfAction": "Education/Literacy"
+      }
+    ]
+  },
+  "otros mundos chiapas||san cristóbal de las casas||mexico": {
+    "name": "Otros Mundos Chiapas",
+    "city": "San Cristóbal de las Casas",
+    "country": "Mexico",
+    "type": "NGO",
+    "website": "https://otrosmundoschiapas.org/",
+    "projects": [
+      {
+        "name": "Alerta de Comercio Tóxico",
+        "website": "https://otrosmundoschiapas.org/alerta-de-comercio-toxico-400-ongs-instan-a-los-responsables-politicos-a-rechazar-el-acuerdo-ue-mercosur-por-preocupaciones-ambientales-de-derechos-humanos-y-democraticos",
+        "countries": "Argentina, Brazil, Mexico, Paraguay, Uruguay",
+        "description": "A solo una semana de un posible anuncio de un nuevo acuerdo político sobre el tratado comercial UE-Mercosur, +400 organizaciones de la sociedad civil, movimientos sociales, centros de pensamiento y otros grupos sociales de América Latina y la Unión Europea, representando a millones de personas de los dos lados del Atlántico, exigen el fin de las negociaciones del acuerdo comercial UE-Mercosur. Lo califican como un “acuerdo tóxico” que sacrifica a las personas, la democracia y el planeta por los beneficios corporativos.",
+        "actionDomains": "Energy/Climate/Sustainability, Human/Fundamental rights, Trade/Economy",
+        "kindsOfAction": "Education/Literacy, Protest"
+      }
+    ]
+  },
+  "powershift e.v.||berlin||germany": {
+    "name": "PowerShift e.V.",
+    "city": "Berlin",
+    "country": "Germany",
+    "type": "NGO",
+    "website": "https://power-shift.de",
+    "projects": [
+      {
+        "name": "Aktiv werden gegen EU-Mercosur",
+        "website": "https://power-shift.de/aktiv-werden-gegen-eu-mercosur/",
+        "countries": "Argentina, Brazil, Germany, Paraguay, Uruguay",
+        "description": "More than 50 organizations and social movements from 17 Latin American countries and the European Union, including PowerShift, launched a campaign on September 16, 2025, demanding an end to trade agreements between the two regions. The aim is to expose the environmental destruction, social injustices, health risks, and growing inequalities caused by these agreements and to send a clear message to political decision-makers: No more toxic trade agreements!",
+        "actionDomains": "Energy/Climate/Sustainability, Trade/Economy",
+        "kindsOfAction": "Advocacy, Education/Literacy, Protest, Research"
+      }
+    ]
+  },
+  "pulse of europe e.v.||frankfurt (am main)||germany": {
+    "name": "Pulse of Europe e.V.",
+    "city": "Frankfurt (Am Main)",
+    "country": "Germany",
+    "type": "NGO",
+    "website": "https://pulseofeurope.eu/",
+    "projects": [
+      {
+        "name": "#Bestof49",
+        "website": "",
+        "countries": "Germany",
+        "description": "The Conference on the Future of Europe (CoFoE), which took place from 2021 to 2022, was the EU’s largest project involving citizens. It resulted in 49 proposals aimed at making the EU more democratic, sustainable, and citizen-focused. Pulse of Europe (PoE) has selected some of these ideas for its ‘#Bestof49’ campaign, in which it actively advocates for their implementation in concrete European policy. This includes, for example, the demand to abolish the principle of unanimity in EU Council decisions. As part of this effort, Pulse of Europe issued a single open letter to Bundestag members and candidates across most constituencies, bringing the European discussion to the local level and underlining the need for a strong, united and sustainable European Union.",
+        "actionDomains": "Democracy",
+        "kindsOfAction": "Advocacy"
+      },
+      {
+        "name": "European HomeParliaments",
+        "website": "https://ehp.pulseofeurope.eu/en/",
+        "countries": "Germany",
+        "description": "Pulse of Europe (PoE) developed the ‘European HomeParliaments’ as a new participation format to directly involve citizens in European debates. By September 2025, already ten rounds had taken place. In small groups, participants meet in person or online, perhaps in someone's living room, to discuss three selected EU policy proposals, vote on them and submit their results to a shared platform, which forms a collective pulse of public opinion. Supported by individual European politicians who engage with the outcomes, this format offers citizens a low-threshold, structured dialogue that connects grassroots discussion with real political processes.",
+        "actionDomains": "Democracy",
+        "kindsOfAction": "Education/Literacy, Participation"
+      },
+      {
+        "name": "Pride of Europe",
+        "website": "",
+        "countries": "Germany, Poland",
+        "description": "The ‘Pride of Europe’ campaign, organised by Pulse of Europe (PoE), responds to rising nationalism and the erosion of LGBTI rights in several EU member states. It does this by drawing public attention to the issue and supporting local human rights movements, especially in Eastern and Southeastern Europe. As part of the campaign, the initiative created the European Rainbow Flag, which was funded through a large-scale crowdfunding campaign, and raised in dozens of European cities. The campaign also launched the ‘To Poland with Love’ petition in response to the so-called LGBT-free zones.",
+        "actionDomains": "Human/Fundamental rights",
+        "kindsOfAction": "Protest"
+      }
+    ]
+  },
+  "rebrip||são paulo||brazil": {
+    "name": "REBRIP",
+    "city": "São Paulo",
+    "country": "Brazil",
+    "type": "Network",
+    "website": "https://rebrip.org/",
+    "projects": [
+      {
+        "name": "Monitoring EU-Mercosur Trade Negotiations",
+        "website": "",
+        "countries": "Argentina, Belgium, Brazil, Paraguay, Uruguay",
+        "description": "REBRIP accompanies international trade negotiations and promotes public debates on its economic, social and environmental impacts.",
+        "actionDomains": "Democracy, Trade/Economy",
+        "kindsOfAction": "Advocacy, Education/Literacy, Monitoring, Research"
+      }
+    ]
+  },
+  "red eu-lat||brussels||belgium": {
+    "name": "Red EU-LAT",
+    "city": "Brussels",
+    "country": "Belgium",
+    "type": "International organization",
+    "website": "https://eulatnetwork.org/es/",
+    "projects": [
+      {
+        "name": "Relaciones UE-América Latina",
+        "website": "https://eulatnetwork.org/es/category/eu-lat/ejes-tematicos/relaciones-ue-america-latina/",
+        "countries": "Bolivia, Colombia, El Salvador, Guatemala, Mexico, Nicaragua, Peru",
+        "description": "The EU-LAT Network's mission is to promote participatory European policies that contribute to full respect for human rights, gender equality, democratization, and a fair, inclusive, and sustainable model of society in Latin America. Political dialogue, cooperation, and trade practices between the parties must be governed by these guiding principles and, as an essential element of trade agreements, must be enforceable and justiciable.",
+        "actionDomains": "Democracy, Energy/Climate/Sustainability, Human/Fundamental rights, Trade/Economy",
+        "kindsOfAction": "Advocacy, Education/Literacy, Monitoring"
+      }
+    ]
+  },
+  "red europea oidhaco (oficina internacional derechos humanos acción colombia)||brussels||belgium": {
+    "name": "Red Europea OIDHACO (Oficina Internacional Derechos Humanos Acción Colombia)",
+    "city": "Brussels",
+    "country": "Belgium",
+    "type": "Network",
+    "website": "https://www.oidhaco.org/",
+    "projects": [
+      {
+        "name": "OIDHACO warns: the European list of “safe countries of origin” threatens the right to asylum and human rights",
+        "website": "https://www.oidhaco.org/en/oidhaco-warns-the-european-list-of-safe-countries-of-origin-threatens-the-right-to-asylum-and-human-rights-2/",
+        "countries": "Belgium, Colombia",
+        "description": "The International Office for Human Rights – Action Colombia (OIDHACO) expresses its deep concern about today’s decision by the European Parliament to vote in favor of the European Commission’s proposal to draw up a common list of “safe countries of origin.” This proposal is part of the reform of the European Pact on Migration and Asylum, together with the “safe third country” proposal, which could restrict the right to asylum and weaken the European Union’s commitment to fundamental rights.",
+        "actionDomains": "Migration",
+        "kindsOfAction": "Advocacy, Education/Literacy"
+      }
+    ]
+  },
+  "redadelco||bogotá||colombia": {
+    "name": "Redadelco",
+    "city": "Bogotá",
+    "country": "Colombia",
+    "type": "Network",
+    "website": "https://redadelco.org/",
+    "projects": [
+      {
+        "name": "Alianza Camarón de Tumaco",
+        "website": "https://redadelco.org/alianza-camaron-de-tumaco/",
+        "countries": "Colombia",
+        "description": "The project strengthens Tumaco’s shrimp value chain through innovation and collaboration between public and private actors. It supports aquaculture organizations, many led by women, to position shrimp as a regional flagship product.",
+        "actionDomains": "Trade/Economy",
+        "kindsOfAction": "Capacity Building"
+      },
+      {
+        "name": "Territorios Caqueteños Sostenibles para la Paz",
+        "website": "https://www.fondoeuropeoparalapaz.eu/project/territorios-caquetenos-sostenibles-para-la-paz/",
+        "countries": "Colombia",
+        "description": "The project seeks to strengthen territorial peace in Caquetá by boosting local capacities for sustainable production and commercialization of key regional products (cocoa, coffee, sugarcane, forest products) under inclusive and environmentally friendly models. It promotes reconciliation through social fabric strengthening and community work. The strategy focuses on three pillars: sustainable economies, territorial governance, and public goods for social inclusion.",
+        "actionDomains": "Conflict/War, Trade/Economy",
+        "kindsOfAction": "Capacity Building"
+      },
+      {
+        "name": "Trade with local identity (Comercio con identidad local)",
+        "website": "https://redadelco.org/comercio-con-identidad-local-datos-cifras-y-avances/",
+        "countries": "Colombia",
+        "description": "The project aims to develop a trade network with a local identity that energizes territorial economies through the sale of products and services offered by CSOs. It starts by improving their capacities, management mechanisms, and offerings, enabling them to move toward self-sustainability and play a decisive role—not merely as social actors but also as economic ones—impacting living conditions, governance, and territorial development. It is founded by the EU.",
+        "actionDomains": "Trade/Economy",
+        "kindsOfAction": "Capacity Building"
+      }
+    ]
+  },
+  "redge||lima||peru": {
+    "name": "RedGE",
+    "city": "Lima",
+    "country": "Peru",
+    "type": "Network",
+    "website": "https://www.redge.org.pe/",
+    "projects": [
+      {
+        "name": "Luces y Sombras del TLC-UE",
+        "website": "https://redge.org.pe/node/3124",
+        "countries": "Peru",
+        "description": "La campaña se desarrolló entre el 3 y el 11 de septiembre de 2025 y tuvo como objetivo difundir los hallazgos del libro “Luces y Sombras del TLC con la Unión Europea”. Se buscó colocar en la agenda pública los impactos económicos, sociales y ambientales del acuerdo, visibilizando retos y oportunidades a más de una década de su vigencia, y reforzando el rol de la sociedad civil en el seguimiento al TLC. Objetivos de la campaña: Informar sobre los hallazgos del libro “Luces y Sombras”. Generar debate sobre los impactos del TLC en el Perú. Posicionar a RedGE y aliados como referentes en análisis crítico de acuerdos comerciales.",
+        "actionDomains": "Energy/Climate/Sustainability, Human/Fundamental rights, Trade/Economy",
+        "kindsOfAction": "Advocacy, Education/Literacy"
+      }
+    ]
+  },
+  "reees. university of pittsburgh||pittsburgh||united states of america": {
+    "name": "REEES. University of Pittsburgh",
+    "city": "Pittsburgh",
+    "country": "United States of America",
+    "type": "Independent research institute",
+    "website": "https://www.ucis.pitt.edu/crees/",
+    "projects": [
+      {
+        "name": "Transcaucasian trail",
+        "website": "https://www.ucis.pitt.edu/crees/",
+        "countries": "Armenia, Azerbaijan, Georgia",
+        "description": "",
+        "actionDomains": "Energy/Climate/Sustainability, Under discussion",
+        "kindsOfAction": "Advocacy, Research"
+      }
+    ]
+  },
+  "research & degrowth international||barcelona||spain": {
+    "name": "Research & Degrowth International",
+    "city": "Barcelona",
+    "country": "Spain",
+    "type": "Independent research institute",
+    "website": "https://degrowth.org",
+    "projects": [
+      {
+        "name": "Policy Briefs",
+        "website": "https://degrowth.org/projects/policy-briefs/",
+        "countries": "France, Germany, Italy, Portugal, Spain",
+        "description": "Our debate-changing degrowth policy briefs are a crucial instrument in the ongoing discourse surrounding ecological economic models. These well-researched documents challenge conventional growth-centric policies by presenting evidence-based arguments and actionable alternatives. These briefs address key issues such as a Green New Deal without Growth, a Universal Basic Income, Trade Unions & Degrowth, Municipalities & Degrowth as well as a brief on Degrowing the Fashion Industry that was funded through a crowdfunding in 2023. These documents are catalysts for transformative change, offering a roadmap towards a more resilient, equitable, and environmentally responsible future that benefits both current and future generations.",
+        "actionDomains": "Energy/Climate/Sustainability, Trade/Economy",
+        "kindsOfAction": "Advocacy, Research"
+      }
+    ]
+  },
+  "rettet den regenwald/ salva la selva||hamburg||germany": {
+    "name": "Rettet den Regenwald/ Salva la Selva",
+    "city": "Hamburg",
+    "country": "Germany",
+    "type": "NGO",
+    "website": "https://www.salvalaselva.org/",
+    "projects": [
+      {
+        "name": "Tell the EU to stand firm against deforestation!",
+        "website": "https://www.rainforest-rescue.org/petitions/1295/tell-the-eu-to-stand-firm-against-deforestation",
+        "countries": "Argentina, Brazil, France, Germany, Indonesia",
+        "description": "The new European Deforestation Regulation (EUDR) came into force in mid-2023. The law, passed by a large majority in the European Parliament, aims to improve the global protection of forests. It prohibits the import and marketing of products for which forests were cleared or degraded after December 31, 2020. The regulation applies to wood, coffee, cocoa, rubber, palm oil, beef and soy, as well as products made from them, such as furniture, paper, chocolate and tires. However, businesses and governments are digging in their heels to oppose the new regulation. The EU must not give in.",
+        "actionDomains": "Energy/Climate/Sustainability, Trade/Economy",
+        "kindsOfAction": "Advocacy, Education/Literacy, Protest"
+      }
+    ]
+  },
+  "sepla||mexico city||mexico": {
+    "name": "SEPLA",
+    "city": "Mexico City",
+    "country": "Mexico",
+    "type": "NGO",
+    "website": "https://sepla21.org/",
+    "projects": [
+      {
+        "name": "Monitoring the EU-Mercosur Association Agreement",
+        "website": "https://cuadernos.sepla21.org/sepla",
+        "countries": "Argentina, Brazil, Paraguay, Uruguay",
+        "description": "The SEPPY Paraguay chapter focuses on the critical analysis of free trade agreements and the impacts of the agro-export model. We analyze how the EU-Mercosur agreement deepens the role of Paraguay as a mere provider of raw materials, prioritizing the reprimarization of the economy over national industrial development and social equity.",
+        "actionDomains": "Democracy, Trade/Economy",
+        "kindsOfAction": "Advocacy, Monitoring, Research"
+      }
+    ]
+  },
+  "sobrevivencia, amigos de la tierra paraguay||asunción||paraguay": {
+    "name": "SOBREVIVENCIA, Amigos de la Tierra Paraguay",
+    "city": "Asunción",
+    "country": "Paraguay",
+    "type": "NGO",
+    "website": "https://www.sobrevivencia.org.py/",
+    "projects": [
+      {
+        "name": "Carta Abierta a los gobiernos y parlamentos de los países del MERCOSUR y el PARLASUR",
+        "website": "https://www.sobrevivencia.org.py/noticias/carta-abierta-a-los-gobiernos-y-parlamentos-de-los-paises-del-mercosur-y-el-parlasur",
+        "countries": "Argentina, Brazil, Paraguay, Uruguay",
+        "description": "Facing the presentation of the additional protocol on environmental matters proposed by the EU, the organizations of Friends of the Earth from Mercosur countries express our opposition to said instrument, which intends to 'greenwash' a Free Trade Agreement (FTA) that will have negative consequences for our countries, their peoples, territories and ecological systems, and will aggravate global socio-environmental crises.",
+        "actionDomains": "Energy/Climate/Sustainability, Trade/Economy",
+        "kindsOfAction": "Advocacy, Monitoring, Protest"
+      }
+    ]
+  },
+  "sozialer friedensdienst kassel e.v.||kassel||germany": {
+    "name": "Sozialer Friedensdienst Kassel e.V.",
+    "city": "Kassel",
+    "country": "Germany",
+    "type": "NGO",
+    "website": "https://sfd-kassel.de/",
+    "projects": [
+      {
+        "name": "Just-Fashion Werkstatt",
+        "website": "https://sfd-kassel.de/files/themes/standard/projekte/Eine%20Welt_SGD_Icons/Inhalte/Just%20Fashion%20Werkstatt%20Kassel%20.pdf",
+        "countries": "France, Germany",
+        "description": "The Just-Fashion workshop is a qualification series focusing on sustainable textile production and fair trade. By educating young people and refugees in upcycling and ethical consumption, the project supports the EU Strategy for Sustainable and Circular Textiles and promotes economic inclusion for those with barriers to the traditional labor market.",
+        "actionDomains": "Energy/Climate/Sustainability, Trade/Economy",
+        "kindsOfAction": "Capacity Building, Education/Literacy, Research"
+      }
+    ]
+  },
+  "support office for student volunteers activities, doshisha university||kyoto||japan": {
+    "name": "Support Office for Student Volunteers Activities, Doshisha University",
+    "city": "Kyoto",
+    "country": "Japan",
+    "type": "Network",
+    "website": "https://volunteer.doshisha.ac.jp/network/",
+    "projects": [
+      {
+        "name": "Kyojyuken(International Housing Studies Association）",
+        "website": "https://www.d-live.info/club/culture/1154",
+        "countries": "Bangladesh, Myanmar, Philippines, Thailand",
+        "description": "The International Housing Research Association was founded in April 1997 at the initiative of students who had participated in activities with the NGO Habitat for Humanity. It was officially recognized as a student organization by Doshisha University in January 1998. Since its founding, the association has carried out a total of 97 overseas programs in 16 countries, primarily in Southeast Asia, as of March 2020. Domestically, we have also been active in supporting recovery efforts in areas affected by the Great East Japan Earthquake and in various community projects throughout Japan. Although overseas dispatch programs were suspended during the COVID-19 pandemic, domestic activities resumed in 2022, followed by the resumption of international projects in 2023, marking the beginning of a new phase of engagement.",
+        "actionDomains": "Human/Fundamental rights, Migration",
+        "kindsOfAction": "Capacity Building, Research"
+      }
+    ]
+  },
+  "taula per méxic||barcelona||spain": {
+    "name": "Taula per Méxic",
+    "city": "Barcelona",
+    "country": "Spain",
+    "type": "Association (e.g. foundation, union, council, charity, etc)",
+    "website": "https://www.taulapermexic.org/",
+    "projects": [
+      {
+        "name": "International Solidarity",
+        "website": "https://www.taulapermexic.org/solidaridad/",
+        "countries": "Mexico, Spain",
+        "description": "International Solidarity is the area that seeks to create and strengthen alliances with organizations both in Mexico and in Europe in order to generate collective efforts that contribute to preventing or stopping human rights violations and to promoting the exercise of rights in Mexico from Catalonia. In this sense, the achievements of the area are never the result of individual commitment, rather, they are the outcome of multiple actions and collective work in which we have had the opportunity to take part.",
+        "actionDomains": "Human/Fundamental rights",
+        "kindsOfAction": "Advocacy"
+      },
+      {
+        "name": "Programa Municipal de Acogida Temporal de Periodistas (PAT-P)",
+        "website": "https://www.taulapermexic.org/acogida-temporal/",
+        "countries": "Mexico, Spain",
+        "description": "The municipal temporary shelter program “Barcelona Protects Journalists from Mexico” (PAT-P) aims to facilitate the temporary stay in Barcelona of members of this group who are threatened due to the exercise of their profession and their activism in denouncing human rights violations. Its purpose is to provide them with a period of respite and to strengthen their personal and professional capacities so they can better confront their situation, while also raising visibility and internationalizing their cause. Likewise, the program seeks to promote and consolidate a Catalonia–Mexico network of journalists that can help reinforce the work of journalists who are under threat.",
+        "actionDomains": "Human/Fundamental rights",
+        "kindsOfAction": "Advocacy, Aid"
+      }
+    ]
+  },
+  "test||test||germany": {
+    "name": "test",
+    "city": "test",
+    "country": "Germany",
+    "type": "test",
+    "website": "https://test.de",
+    "projects": [
+      {
+        "name": "test",
+        "website": "",
+        "countries": "Germany",
+        "description": "test",
+        "actionDomains": "other",
+        "kindsOfAction": "Other"
+      }
+    ]
+  },
+  "the \"new europe center\"||kyiv||ukraine": {
+    "name": "The \"New Europe Center\"",
+    "city": "Kyiv",
+    "country": "Ukraine",
+    "type": "NGO",
+    "website": "https://neweurope.org.ua/en/",
+    "projects": [
+      {
+        "name": "EU Accession Exchange Forum",
+        "website": "https://neweurope.org.ua/en/project/eu-accession-exchange-forum/",
+        "countries": "Bulgaria, Moldova, Romania, Slovakia, Slovenia",
+        "description": "Since 2022, the New Europe Center, in partnership with the Office of the Deputy Prime Minister for European and Euro-Atlantic Integration of Ukraine, the International Renaissance Foundation, the Institute for European Policy and Reform, the Soros Foundation in Georgia, and the Zentrum Liberale Moderne, has been organizing the EU Accession Exchange Forum. The Forum was created as a key expert platform for all candidate countries for membership of the EU, whose task is to exchange lessons learned in the process of accession talks and develop recommendations on how to make the EU enlargement process more effective.",
+        "actionDomains": "Democracy, Human/Fundamental rights",
+        "kindsOfAction": "Advocacy"
+      },
+      {
+        "name": "Responsible Partnership. Ukraine and Japan in the Context of Russia’s War",
+        "website": "https://neweurope.org.ua/en/project/vidpovidalne-partnerstvo-ukrayina-ta-yaponiya-v-konteksti-vijny-rosiyi/",
+        "countries": "Japan",
+        "description": "In 2025, the New Europe Center implemented the project “Enhancing special global partnership. Ukraine and Japan on the way to victory and just peace”. Its goal is to establish closer cooperation between Kyiv and Tokyo, as well as to develop interaction at the level of think tanks. The New Europe Center has been making project-based efforts to develop the Ukraine-Japan partnership since 2021. Over the past four years, we have managed to organise five forums, prepare eight analytical materials and more than ten infographics on Ukrainian-Japanese relations. In addition, in 2023-2025, the New Europe team organised advocacy visits to Japan.",
+        "actionDomains": "Conflict/War, Democracy, Energy/Climate/Sustainability",
+        "kindsOfAction": "Advocacy, Monitoring"
+      },
+      {
+        "name": "The Euromap: profiles of regions",
+        "website": "https://neweurope.org.ua/en/project/yevromapa-profil-regioniv/",
+        "countries": "Ukraine",
+        "description": "“The European map of Ukraine. Rating of European Integration of Regions” is the first comprehensive study of Ukraine’s progress towards European integration prepared by the New Europe Center analysts in cooperation with the Government Office for Coordination on European and Euro-Atlantic Integration. It is a rating of Ukraine’s regions, compiled on the basis of compliance with the indicators, which, in our opinion, most clearly reflect the dynamics of the regions’ rapprochement with the EU.",
+        "actionDomains": "Democracy, Energy/Climate/Sustainability, Human/Fundamental rights, Trade/Economy",
+        "kindsOfAction": "Advocacy, Monitoring, Research"
+      }
+    ]
+  },
+  "tierra nativa - amigos de la tierra argentina||buenos aires||argentina": {
+    "name": "Tierra Nativa - Amigos de la Tierra Argentina",
+    "city": "Buenos Aires",
+    "country": "Argentina",
+    "type": "NGO",
+    "website": "https://tierranativa.org.ar/",
+    "projects": [
+      {
+        "name": "No al acuerdo de libre comercio Unión Europea- Mercosur",
+        "website": "https://tierranativa.org.ar/no-al-acuerdo-de-libre-comercio-union-europea-mercosur/",
+        "countries": "Argentina, Brazil, Germany, Paraguay, Uruguay",
+        "description": "The Free Trade Agreement between the European Union and Mercosur has been under negotiation for over 20 years between the two blocs, generating strong criticism and resistance from civil society organizations on both continents. These criticisms are based on the asymmetrical and detrimental nature of the Agreement for our country and our region. This Agreement would reinforce our dependence on the export of primary goods, while simultaneously opening the doors to European exports of high value-added industrial goods and heavily subsidized agro-industrial products. This would have serious consequences for our countries, their people, territories, and ecosystems, exacerbating global socio-environmental crises.",
+        "actionDomains": "Democracy, Energy/Climate/Sustainability, Trade/Economy",
+        "kindsOfAction": "Advocacy, Monitoring, Protest, Research"
+      }
+    ]
+  },
+  "transform trade||newcastle upon tyne||united kingdom": {
+    "name": "Transform Trade",
+    "city": "Newcastle upon Tyne",
+    "country": "United Kingdom",
+    "type": "NGO",
+    "website": "https://www.transform-trade.org/",
+    "projects": [
+      {
+        "name": "Hidden Homeworkers",
+        "website": "https://www.transform-trade.org/project-library/hidden-homeworkers",
+        "countries": "India, Nepal, Pakistan",
+        "description": "Hidden Homeworkers is a new four-year programme that aims to work collaboratively with brands and multi-stakeholder initiatives to map supply chains down to the homeworker level. The programme will help brands introduce simple systems that document homeworkers’ contribution and wages, and develop action plans that drive transparency, best practices and improve working conditions.",
+        "actionDomains": "Human/Fundamental rights, Trade/Economy",
+        "kindsOfAction": "Advocacy, Monitoring"
+      }
+    ]
+  },
+  "umweltinstitut münchen||munich||germany": {
+    "name": "Umweltinstitut München",
+    "city": "Munich",
+    "country": "Germany",
+    "type": "NGO",
+    "website": "https://umweltinstitut.org/",
+    "projects": [
+      {
+        "name": "Glyphosat – Das meistverkaufte Pflanzengift der Welt",
+        "website": "https://umweltinstitut.org/landwirtschaft/glyphosat/",
+        "countries": "Belgium, France, Germany",
+        "description": "The Environmental Institute Munich is committed to ensuring that the approval for the weedkiller glyphosate is not renewed in the EU. We highlight the risks to biodiversity and human health. We call for the European Commission and member states to follow the precautionary principle and ban the substance, which has been classified by the WHO as 'probably carcinogenic,' rather than extending its license for another ten years.",
+        "actionDomains": "Energy/Climate/Sustainability, Trade/Economy",
+        "kindsOfAction": "Advocacy, Monitoring, Protest, Research"
+      }
+    ]
+  },
+  "voxukraine||kyiv||ukraine": {
+    "name": "VoxUkraine",
+    "city": "Kyiv",
+    "country": "Ukraine",
+    "type": "NGO",
+    "website": "https://voxukraine.org/en/",
+    "projects": [
+      {
+        "name": "A Year Since EU Accession Negotiations Began — How Much Longer Will Ukraine Wait?",
+        "website": "https://voxukraine.org/en/a-year-since-eu-accession-negotiations-began-how-much-longer-will-ukraine-wait",
+        "countries": "Ukraine",
+        "description": "June 25, 2024, marked a historic day — Ukraine officially began negotiations to join the European Union. A year has passed, and we are still not a member — and that’s entirely expected. What lies ahead is no sprint but a long and complex journey. So, how long do EU accession talks actually take? And have there ever been truly “fast-track” paths to membership?",
+        "actionDomains": "Democracy, Human/Fundamental rights",
+        "kindsOfAction": "Monitoring, Research"
+      },
+      {
+        "name": "Gender Balance in Ukraine’s Recovery: A New Study by VoxUkraine",
+        "website": "https://voxukraine.org/en/gender-balance-in-ukraine-s-recovery-a-new-study-by-vox-ukraine",
+        "countries": "Ukraine",
+        "description": "Ukraine’s recovery from the consequences of Russian attacks has not stopped even for a moment. To grasp the scale of the challenge, consider this: as of spring 2025, Ukrainians had submitted over 133,000 applications for compensation for damaged housing through the eRecovery program. Already, 87,000 citizens have received payments totaling UAH 9.26 billion.",
+        "actionDomains": "Democracy, Human/Fundamental rights",
+        "kindsOfAction": "Advocacy, Research"
+      },
+      {
+        "name": "State Digital Transformation in Ukraine: 2019–2024 Review",
+        "website": "https://voxukraine.org/en/state-digital-transformation-in-ukraine-2019-2024-review",
+        "countries": "Estonia, Sweden, Switzerland, Ukraine",
+        "description": "Digital transformation in Ukraine is a systemic process that has encompassed nearly all areas of public administration. The innovation behind Diia, the rollout of the Trembita platform, Prozorro, DREAM, military tech solutions, and the launch of the Global Government Technology Centre in Kyiv (GGTC Kyiv)—all testify to Ukraine’s progress toward becoming a modern digital state.",
+        "actionDomains": "Digital Technology, Energy/Climate/Sustainability",
+        "kindsOfAction": "Capacity Building, Research"
+      }
+    ]
+  },
+  "yucom: lawyers’ committee for human rights||belgrade||serbia": {
+    "name": "YUCOM: Lawyers’ Committee for Human Rights",
+    "city": "Belgrade",
+    "country": "Serbia",
+    "type": "NGO",
+    "website": "https://yucom.org.rs/en/home/",
+    "projects": [
+      {
+        "name": "Stronger Together",
+        "website": "https://yucom.org.rs/en/program-2/",
+        "countries": "Kosovo, Serbia",
+        "description": "The project, \"Human Rights Defenders - Stronger together,\" aims to enhance the position, protection, and rights of human rights defenders (HRDs) in Serbia. It focuses on data collection and reporting of attacks on HRDs, offering peer-to-peer support and empowerment, and conducting a media and advocacy campaign. The project seeks to provide evidence-based data, legal aid, mentoring, and raise awareness to strengthen HRD voices and advocate for better protection and support for HRDs in Serbia. By addressing these key areas, the project seeks to strengthen HRD voices, raise awareness about their work, and advocate for better protection and support for HRDs in Serbia. Ultimately, it aims to create a more secure environment for human rights defenders, ensuring they can continue their crucial work in advancing human rights in the country.",
+        "actionDomains": "Human/Fundamental rights",
+        "kindsOfAction": "Advocacy, Capacity Building, Monitoring, Protest, Research"
+      }
+    ]
+  }
+};
+    /* VALEUS_ORG_DETAILS_END */
+
+    const CITY_LL = {
+      'Buenos Aires,Argentina':[-34.6037,-58.3816],
+      'Brasília,Brazil':[-15.7939,-47.8828],
+      'Goiás,Brazil':[-15.9333,-50.1403],
+      'São Paulo,Brazil':[-23.5505,-46.6333],
+      'Quito,Ecuador':[-0.1807,-78.4678],
+      'Bonn,Germany':[50.7374,7.0982],
+      'Göttingen,Germany':[51.5413,9.9158],
+      'Hamburg,Germany':[53.5511,9.9937],
+      'Hamm,Germany':[51.6739,7.8150],
+      'Heidelberg,Germany':[49.3988,8.6724],
+      'Kassel,Germany':[51.3127,9.4797],
+      'Konstanz,Germany':[47.6779,9.1732],
+      'Munich,Germany':[48.1351,11.5820],
+      'Mexico City,Mexico':[19.4326,-99.1332],
+      'San Cristóbal de las Casas,Mexico':[16.7370,-92.6376],
+      'Amsterdam,Netherlands':[52.3676,4.9041],
+      'Asunción,Paraguay':[-25.2637,-57.5759],
+      'Lima,Peru':[-12.0464,-77.0428],
+      'Newcastle upon Tyne,United Kingdom':[54.9783,-1.6178],
+      'Massachusetts,United States of America':[42.4072,-71.3824],
+      'Ankara,Turkey':[39.9255,32.8663],'Istanbul,Turkey':[41.0151,28.9795],'Brussels,Belgium':[50.8505,4.3488],
+      'Arlington,United States of America':[38.8810,-77.1043],'Alexandria,Egypt':[31.2058,29.9245],'Paris,France':[48.8647,2.3490],
+      'Berlin,Germany':[52.5200,13.4050],'Warsaw,Poland':[52.2370,21.0175],'Krakow,Poland':[50.0614,19.9366],
+      'Florence,Italy':[43.7793,11.2463],'Bologna,Italy':[44.4938,11.3388],'Rome,Italy':[41.9028,12.4964],
+      'Milan,Italy':[45.4643,9.1895],'Scandicci,Italy':[43.7542,11.1879],'Pisa,Italy':[43.7085,10.4036],
+      'Athens,Greece':[37.9795,23.7162],'Palermo,Italy':[38.1321,13.3356],'Carmagnola,Italy':[44.8496,7.7203],
+      'Almaty,Kazakhstan':[43.2565,76.9285],'Nuremberg,Germany':[49.46098,11.06186],'Budapest,Hungary':[47.4979,19.0402],
+      'New York City,United States of America':[40.7143,-74.0060],'Cologne,Germany':[50.9352,6.9531],'Stockholm,Sweden':[59.3294,18.0687],
+      'Copenhagen,Denmark':[55.6761,12.5683],'Vienna,Austria':[48.2085,16.3721],'Frankfurt (Am Main),Germany':[50.1155,8.6842],
+      'Washington D.C.,United States of America':[38.8951,-77.0364],'Madrid,Spain':[40.4165,-3.7026],'Leipzig,Germany':[51.3396,12.3713],
+      'Freiburg,Germany':[47.9959,7.8522],'Otzenhausen,Germany':[49.6205,7.0013],'Kyiv,Ukraine':[50.4500,30.5233],
+      'Santiago,Chile':[-33.4569,-70.6483],'Kyoto,Japan':[35.0211,135.7539],'Zagreb,Croatia':[45.8144,15.9780],
+      'Astana (Nur-Sultan),Kazakhstan':[51.1694,71.4491],'Belgrade,Serbia':[44.8040,20.4651],'Firenze (dup of Florence),Italy':[43.7793,11.2463],
+      'Barcelona,Spain':[41.3888,2.1590],'Campi Bisenzio,Italy':[43.8245,11.1303],'Pittsburgh,United States of America':[40.4406,-79.9959],
+      'Frankfurt (Oder),Germany': [52.3472, 14.5506],'Bogotá,Colombia':[4.5981, -74.0799],'Medellín,Colombia':[6.2502, -75.5676]
+    };
+
+    const normalize = {
+      city(c){
+        if(!c) return c;
+        c = c.trim();
+        if(/^firenze\b/i.test(c)) return 'Florence';
+        if(/^washington\b/i.test(c)) return 'Washington D.C.';
+        if(/^astana$/i.test(c)) return 'Astana (Nur-Sultan)';
+        if(/frankfurt.*(?:am main|\(main\))/i.test(c)) return 'Frankfurt (Am Main)';
+        if(/frankfurt.*oder/i.test(c)) return 'Frankfurt (Oder)';
+        if(/bogota$/i.test(c)) return 'Bogotá';
+        if(/medellin$/i.test(c)) return 'Medellín';
+        return c;
+      },
+      country(x){
+        if(!x) return x;
+        x = x.trim();
+        if(/^kazakhestan$/i.test(x)) return 'Kazakhstan';
+        return x;
+      },
+      cat(x){
+        if(!x) return '';
+        let s = x.trim().replace(/\s*\/\s*/g,'/');
+        const map = {
+          'human/fundamental rights':'Human/Fundamental rights',
+          'energy/climate/sustainability':'Energy/Climate/Sustainability',
+          'trade/economy':'Trade/Economy',
+          'international/intercultural understanding':'International/intercultural Understanding',
+          'digital technology':'Digital Technology',
+          'digital media':'Digital Media',
+          'european integration':'European Integration',
+          'conflict/war':'Conflict/War',
+          'other':'other',
+          'trade/economy ':'Trade/Economy'
+        };
+        const key = s.toLowerCase();
+        return map[key] || s;
+      },
+      url(u){
+        if(!u) return '';
+        u = u.trim();
+        const m = u.match(/(https?:\/\/[^\s]+|www\.[^\s]+)/i);
+        if(!m) return '';
+        let out = m[1];
+        if(/^www\./i.test(out)) out = 'https://' + out;
+        return out.replace(/[),.;]+$/,'');
+      }
+    };
+
+    // Build data from inline CSV
+    const CSV = `Name of Organization;City;Country;Website;Primary Category;Secondary Category;Third Category
+The Association of Civil Society Development Center ;Ankara;Turkey;https://www.sivilsesler.org/;Trade/Economy;;
+Turkish Economic and Social Studies Foundation ;Istanbul;Turkey;https://www.tesev.org.tr/en/home/;Democracy;;
+ECONOMIC DEVELOPMENT FOUNDATION ;Istanbul;Turkey;https://www.ikv.org.tr/ikv.asp?ust_id=2&id=10;Trade/Economy;;
+Hrant Dink Foundation ;Istanbul;Turkey;https://hrantdink.org/en/;Human/Fundamental rights;other;
+Tepsa ;Brussels;Belgium;https://tepsa.eu/;Democracy;;
+Demsoc;Brussels;Belgium;https://www.demsoc.org/;Democracy;;
+Crude Accountability;Alexandria;Egypt;https://crudeaccountability.org/;Energy/Climate/Sustainability;;
+attac;Paris;France;https://www.attac.de;Trade/Economy;;
+Fridays for future;Berlin;Germany;https://fridaysforfuture.de/;Energy/Climate/Sustainability;;
+Democracy Otwarty Dialog Foundation (Open Dialogue Foundation);Warsaw;Poland;https://en.odfoundation.eu/;Democracy;;
+Batory Foundation;Warsaw;Poland;https://www.batory.org.pl/en/;Democracy;;
+Fundacja Rozwoju Demokracji Lokalnej (Foundation for the Development of Local Democracy);Warsaw;Poland;https://frdl.org.pl/;Democracy;;
+Institute of Public Affairs (ISP);Warsaw;Poland;https://www.isp.org.pl/en/about-us;Trade/Economy;;
+CASE – Center for Social and Economic Research;Warsaw;Poland;;Trade/Economy;;
+Polish Green Network;Krakow;Poland;https://zielonasiec.pl/en/home-2/;Energy/Climate/Sustainability;;
+ClientEarth Poland;Warsaw;Poland;https://www.clientearth.pl/;Energy/Climate/Sustainability;;
+Polska Akcja Humanitarna (PAH);Warsaw;Poland;https://www.pah.org.pl/;Conflict/War;;
+Fundacja Ocalenie;Warsaw;Poland;https://ocalenie.org.pl/;Migration;;
+Stowarzyszenie Interwencji Prawnej;Warsaw;Poland;https://interwencjaprawna.pl/;Migration;;
+Helsinki Foundation for Human Rights (Helsińska Fundacja Praw Człowieka HFPC);Warsaw;Poland;https://hfhr.pl/en;Human/Fundamental rights;;
+Amnesty International Poland;Warsaw;Poland;https://www.amnesty.org/en/location/europe-and-central-asia/western-central-and-south-eastern-europe/poland/;Human/Fundamental rights;;
+Campaign Against Homophobia (Kampania Przeciw Homofobii);Warsaw;Poland;https://kph.org.pl/en/;Human/Fundamental rights;;
+Amnesty International Firenze;Bologna;Italy;https://amnestyfirenze.wordpress.com/;Human/Fundamental rights;;
+ARCIGAY;Florence;Italy;https://www.arcigayfirenze.it/;Human/Fundamental rights;;
+IREOS;Florence;Italy;https://www.ireos.org/;Human/Fundamental rights;;
+Italiani senza cittadinanza;Rome;Italy;https://www.italianisenzacittadinanza.org/;Human/Fundamental rights;Migration;
+Black History Month Florence;Florence;Italy;http://www.blackhistorymonthflorence.com/;Human/Fundamental rights;;
+Italian Climate Network;Milan;Italy;https://www.italiaclima.org/en/home_en/;Energy/Climate/Sustainability;;
+Legambiente Firenze;Florence;Italy;https://www.legambientefirenze.it/;Energy/Climate/Sustainability;;
+Rete Semi Rurali;Scandicci;Italy;https://rsr.bio/;Energy/Climate/Sustainability;;
+Florence Must Act;Florence;Italy;https://firenzeurbanlifestyle.com/florence-must-act-un-gommone-in-arno-per-richiedere-accoglienza-per-tutti/;Migration;;
+Casa della Donna Firenze;Pisa;Italy;https://casadelledonnefirenze.it/;Human/Fundamental rights;;
+Nosotras para Ellas A.C.;Florence;Italy;https://www.girlsnotbrides.org/our-partnership/member-directory/nosotras-para-ellas-ac/;Human/Fundamental rights;;
+EuropaNow;Rome;Italy;https://www.europanow.eu/;Conflict/War;Democracy;Human/Fundamental rights
+Europe Must Act;Athens;Greece;https://www.europemustact.org/;Migration;;
+From the Sea to the City – “A consortium of civil society organizations for a welcoming Europe”;Palermo;Italy;https://fromseatocity.eu/;Human/Fundamental rights;Migration;
+Recosol (Rete dei Comuni Solidali Italy);Carmagnola;Italy;https://www.comunitasolidali.org/;other;;
+Eastern Partnership Civil Society Forum;Brussels;Belgium;https://eap-csf.eu/;other;;
+Legal Policy Research Center;Almaty;Kazakhstan;https://lprc.kz/en/home/;Human/Fundamental rights;;
+Alliance against right-wing extremism in Nuremberg (Allianz gegen Rechtsextremismus Nürnberg);Nuremberg;Germany;https://www.allianz-gegen-rechtsextremismus.de/;Democracy;;
+Antifaschists Germany;Berlin;Germany;https://antifascisteurope.org/germany/;Democracy;;
+Amnesty International;Berlin;Germany;https://www.amnesty.de/;Human/Fundamental rights;;
+Civil Development Forum Foundation (Fundacja Forum Rozwoju Obywatelskiego);Warsaw;Poland;https://wolnagospodarka.pl/en/what-we-do/forum-obywatelskiego-rozwoju/;Democracy;;
+ePaństwo Foundation (Fundacja ePaństwo);Warsaw;Poland;https://mojepanstwo.pl/fundacja;Democracy;;
+Batory Foundation (Fundacja Batorego);Warsaw;Poland;https://www.batory.org.pl/en/;Democracy;;
+Panoptykon Foundation (Fundacja Panoptykon);Warsaw;Poland;https://en.panoptykon.org/;Digital Technology;Human/Fundamental rights;
+Digital Center Foundation (Fundacja Centrum Cyfrowe);Warsaw;Poland;https://centrumcyfrowe.pl/en/homepage/;Digital Technology;;
+Polish Chamber of Information Technology and Telecommunications (Polska Izba Informatyki i Telekomunikacji PIIT);Warsaw;Poland;https://www.piit.org.pl/;Digital Technology;;
+Amerykańska Izba Handlowa w Polsce (Amcham Poland);Warsaw;Poland;https://amcham.pl/;Trade/Economy;;
+European Roma Rights Center;Budapest;Hungary;https://www.errc.org/;Human/Fundamental rights;;
+Human Rights First;New York City;United States of America;https://humanrightsfirst.org/;Human/Fundamental rights;;
+Campaign Against Homophobia (Kampania Przeciw Homofobii);Warsaw;Poland;https://kph.org.pl/;Human/Fundamental rights;;
+Central Council for Muslims in Germany ;Cologne;Germany;https://zentralrat.de/3037.php;other;;
+Central Council of Jews in Germany;Berlin;Germany;https://www.zentralratderjuden.de/;other;;
+Civil Rights Defenders;Stockholm;Sweden;https://crd.org/;Human/Fundamental rights;;
+Danish Refugee Council (Dansk Flygtningehjælp);Copenhagen;Denmark;https://drc.ngo/;Migration;;
+CEPOS;Copenhagen;Denmark;https://cepos.dk/english/;other;;
+Association of European Journalists;Vienna;Austria;https://aej.org/;Digital Technology;Human/Fundamental rights;
+European Federation of Journalists;Brussels;Belgium;https://europeanjournalists.org/;Digital Technology;Human/Fundamental rights;
+FEMEN;Paris;France;https://femen.org/;Human/Fundamental rights;;
+PRO ASYL;Frankfurt (Am Main);Germany;https://www.proasyl.de/;Migration;;
+Intercultural Council (Interkultureller Rat);Frankfurt (Am Main);Germany;https://www.coe.int/en/web/interculturalcities;other;;
+Freedom House;Washington D.C.;United States of America;https://freedomhouse.org/;Democracy;Human/Fundamental rights;
+Hungarian Civil Liberties Union (Társaság a Szabadságjogokért TASZ);Budapest;Hungary;https://tasz.hu/;Human/Fundamental rights;;
+Hungarian Helsinki Committee (Magyar Helsinki Bizottság MHB);Budapest;Hungary;https://helsinki.hu/;Human/Fundamental rights;;
+International Auschwitz Committee;Berlin;Germany;https://www.auschwitz.info/en/welcome.html;other;;
+Iustitia Association of Polish Judges (Stowarzyszenie Sędziów Polskich Iustitia);Warsaw;Poland;https://iustitia.pl/;Human/Fundamental rights;;
+Migration Aid (Hungarian civil organization);Budapest;Hungary;https://migaid.org/en/;Migration;;
+Reporters Without Borders (RSF);Paris;France;https://rsf.org/en;Digital Technology;Human/Fundamental rights;
+Roma Civil Rights Foundation (Roma Polgárjogi Alapítvány);Budapest;Hungary;http://www.rpa.ingyenweb.hu/keret.cgi?/start.html;Democracy;;
+Save the Children Denmark (Red Barnet);Copenhagen;Denmark;https://redbarnet.dk/stoet/;Human/Fundamental rights;;
+South-East Europe Media Organization (SEEMO);Vienna;Austria;https://seemo.org/;Digital Media;Human/Fundamental rights;
+International Press Institute (IPI);Vienna;Austria;https://ipi.media/;Digital Media;Human/Fundamental rights;
+Spanish federation of journalists' association (FAPE);Madrid;Spain;https://fape.es/;Digital Media;Human/Fundamental rights;
+Swedish Federation for Lesbian Gay Bisexual and Transgender Rights (Riksförbundet für homosexuellas bisexuellas transpersoners queeras och intersexpersoners rättigheter RFSL);Stockholm;Sweden;https://www.rfsl.se/en/;Human/Fundamental rights;;
+Stockholm Pride;Stockholm;Sweden;https://www.stockholmpride.org/en/;Human/Fundamental rights;;
+The Nobel Foundation (Nobelstiftelsen);Stockholm;Sweden;https://www.nobelprize.org/the-nobel-prize-organisation/the-nobel-foundation/;Human/Fundamental rights;;
+Themis Judges' Association (Stowarzyszenie Sędziów Themis);Warsaw;Poland;https://themis-sedziowie.eu/statut/;Human/Fundamental rights;;
+Bundesnetzwerk Bürgerschaftliches Engagement (BBE);Berlin;Germany;https://www.b-b-e.de/;Democracy;;
+Europäische Akademie Berlin e.V. (EAB);Berlin;Germany;https://www.eab-berlin.eu/;Democracy;;
+European Council on Foreign Relations e.V. (ECFR);Berlin;Germany;https://ecfr.eu/;other;;
+Civil Liberties Union for Europe (Liberties);Berlin;Germany;https://www.liberties.eu/en;Human/Fundamental rights;;
+We are Europe! e.V.;Leipzig;Germany;https://we-are-europe.org/;Democracy;;
+Gemeinschaft für studentischen Austausch in Mittel- und Osteuropa e.V. (GFPS);Freiburg;Germany;https://www.gfps.org/;other;;
+Ecologic Institut;Berlin;Germany;https://www.ecologic.eu/de;Energy/Climate/Sustainability;;
+Europäische Akademie Otzenhausen;Otzenhausen;Germany;https://www.eao-otzenhausen.de/;Energy/Climate/Sustainability;;
+Heinrich-Böll-Stiftung;Berlin;Germany;https://www.boell.de/de;Energy/Climate/Sustainability;Democracy;Human/Fundamental rights
+Europa-Union Deutschland (EUD);Berlin;Germany;https://www.europa-union.de/;Democracy;;
+Junge Europäische Förderalist:innen (JEF);Berlin;Germany;https://www.jef.de/;Democracy;;
+Institut für Europäische Politik e.V. (IEP);Berlin;Germany;https://iep-berlin.de/;European Integration;;
+United Europe e.V.;Berlin;Germany;https://www.united-europe.eu/de/;European Integration;;
+Citizens of Europe e.V.;Berlin;Germany;https://citizens-of-europe.eu/;Democracy;;
+América Latina y el Caribe Mejor Sin TLC;Santiago;Chile;https://americalatinasintlc.org/;Democracy;Energy/Climate/Sustainability;Trade/Economy
+Red EU-LAT;Brussels;Belgium;https://eulatnetwork.org/es/;Trade/Economy;Democracy;Energy/Climate/Sustainability
+Croatian Youth Network;Zagreb;Croatia;https://mmh.hr/;Democracy;Digital Technology;Active Citizenship
+Legal Media-Center;Astana (Nur-Sultan);Kazakhstan;https://www.lmc.kz/ru;Human/Fundamental rights;;
+Eurasia Foundation of Central Asia;Almaty;Kazakhstan;http://en.ef-ca.kz/;Human/Fundamental rights;;
+Center for Cultural Decontamination;Belgrade;Serbia;https://www.czkd.org;Human/Fundamental rights;;
+DAH Teatar;Belgrade;Serbia;https://en.dahteatarcentar.com/;Democracy;;
+COSPE ETS;Florence;Italy;https://www.cospe.org/;Migration;Conflict/War;
+Collettivo Di Fabbrica - Lavoratori Gkn Firenze;Campi Bisenzio;Italy;https://insorgiamo.org;Energy/Climate/Sustainability;Trade/Economy;
+DiEM25;Brussels;Belgium;https://diem25.org/;Energy/Climate/Sustainability;Trade/Economy;
+YUCOM: Lawyers’ Committee for Human Rights;Belgrade;Serbia;https://yucom.org.rs/en/home/;Human/Fundamental rights;;
+Kazakhstan International Bureau for Human Rights and Rule of Law;Almaty;Kazakhstan;https://bureau.kz/en/;Human/Fundamental rights;;
+VoxUkraine;Kyiv;Ukraine;https://voxukraine.org/en/;Democracy;Human/Fundamental rights;Digital Technology
+The "New Europe Center";Kyiv;Ukraine;https://neweurope.org.ua/en/;Democracy;Human/Fundamental rights;Conflict/War
+Oekumenisches Europa-Centrum Frankfurt (Oder) e.V.;Frankfurt (Oder);Germany;https://www.oec-ff.de/index.php/de/;International/intercultural Understanding;;
+Europa-Union Deutschland e.V.;Berlin;Germany;https://www.europa-union.de/;Democracy;;
+Pulse of Europe e.V.;Frankfurt (Am Main);Germany;https://pulseofeurope.eu/;Human/Fundamental rights;Democracy;
+Redadelco;Bogotá;Colombia;https://redadelco.org/;Trade/Economy;Conflict/War;
+Fundación Lazos de Dignidad;Bogotá;Colombia;https://www.lazosdedignidad.org/;Conflict/War;;
+Conciudadanía;Medellín;Colombia;https://conciudadania.org/;Energy/Climate/Sustainability;Democracy;Human/Fundamental rights
+Europe without Barriers;Kyiv;Ukraine;https://english.europewb.org.ua/;Democracy;Human/Fundamental rights;Trade/Economy
+Attac Argentina;Buenos Aires;Argentina;https://attac-argentina.com.ar/;Trade/Economy;;
+Tierra Nativa - Amigos de la Tierra Argentina;Buenos Aires;Argentina;https://tierranativa.org.ar/;Trade/Economy;Energy/Climate/Sustainability;Democracy
+Anders Handeln Austria;Vienna;Austria;https://anders-handeln.at/;Trade/Economy;Energy/Climate/Sustainability;
+Attac Austria;Vienna;Austria;https://www.attac.at/;Trade/Economy;Energy/Climate/Sustainability;Human/Fundamental rights
+Climate Action Network (CAN) Europe;Brussels;Belgium;https://caneurope.org/;Energy/Climate/Sustainability;;
+DiEM25;Brussels;Belgium;https://diem25.org/;Conflict/War;Human/Fundamental rights;
+European Coordination Via Campesina;Brussels;Belgium;https://www.eurovia.org/;Trade/Economy;Human/Fundamental rights;
+Friends of the Earth Europe;Brussels;Belgium;https://friendsoftheearth.eu;Energy/Climate/Sustainability;;
+Humundi;Brussels;Belgium;https://www.humundi.org/;Trade/Economy;Energy/Climate/Sustainability;Human/Fundamental rights
+Mouvement d'Action Paysanne;Brussels;Belgium;https://www.lemap.be/;Energy/Climate/Sustainability;Trade/Economy;Democracy
+Red Europea OIDHACO (Oficina Internacional Derechos Humanos Acción Colombia);Brussels;Belgium;https://www.oidhaco.org/;Migration;;
+Comissão para Ação Sociotransformadora - CEPAST-CNBB;Brasília;Brazil;https://cepastcnbb.org.br/;Energy/Climate/Sustainability;Human/Fundamental rights;
+Cáritas Brasileira;Brasília;Brazil;https://caritas.org.br/;Migration;Human/Fundamental rights;
+Comissão pastoral da Terra (CPT);Goiás;Brazil;https://cptnacional.org.br/;Human/Fundamental rights;Democracy;
+Jubileu Sul Brasil;São Paulo;Brazil;https://jubileusul.org.br/;Trade/Economy;Energy/Climate/Sustainability;Democracy
+REBRIP;São Paulo;Brazil;https://rebrip.org/;Trade/Economy;Democracy;
+CDES;Quito;Ecuador;https://cdes.org.ec/;Human/Fundamental rights;;
+CCFD-Terre Solidaire;Paris;France;https://ccfd-terresolidaire.org/;Trade/Economy;Human/Fundamental rights;
+Aktionsgemeinschaft solidarische Welt;Berlin;Germany;https://www.aswnet.de/ueber-uns;Human/Fundamental rights;;
+ASA, asamblea en solidaridad con Argentina en Berlín;Berlin;Germany;https://asambleaargentinaberlin.org/;Democracy;Trade/Economy;Human/Fundamental rights
+Berliner Wassertisch;Berlin;Germany;https://berliner-wassertisch.de/;Democracy;Trade/Economy;Energy/Climate/Sustainability
+FDCL - Forschungs- und Dokumentationszentrum Chile-Lateinamerika;Berlin;Germany;https://www.fdcl.org/;Energy/Climate/Sustainability;;
+Netzwerk gerechter Welthandel;Berlin;Germany;https://www.gerechter-welthandel.org/;Trade/Economy;Energy/Climate/Sustainability;Human/Fundamental rights
+PowerShift e.V.;Berlin;Germany;https://power-shift.de;Trade/Economy;Energy/Climate/Sustainability;
+BUNDjugend;Bonn;Germany;https://www.bundjugend.de/;Energy/Climate/Sustainability;Trade/Economy;
+Attac Deutschland;Frankfurt (Am Main);Germany;https://www.attac.de/;Trade/Economy;;
+Entwicklungspolitisches Netzwerk Hessen;Frankfurt (Am Main);Germany;https://www.epn-hessen.de/;Democracy;Energy/Climate/Sustainability;Migration
+Gesellschaft für bedrohte Völker (GfbV);Göttingen;Germany;https://www.gfbv.de/;Human/Fundamental rights;Conflict/War;Democracy
+EU-LAC;Hamburg;Germany;https://eulacfoundation.org/;Human/Fundamental rights;Democracy;
+Rettet den Regenwald/ Salva la Selva;Hamburg;Germany;https://www.salvalaselva.org/;Energy/Climate/Sustainability;Trade/Economy;
+Arbeitsgemeinschaft bäuerliche Landwirtschaft e.V.;Hamm;Germany;https://www.abl-ev.de/start;Energy/Climate/Sustainability;;
+FIAN Alemania;Heidelberg;Germany;https://www.fian.de/;Human/Fundamental rights;Trade/Economy;
+Sozialer Friedensdienst Kassel e.V.;Kassel;Germany;https://sfd-kassel.de/;Energy/Climate/Sustainability;Trade/Economy;
+Konstanzer Bündnis gerechter Welthandel;Konstanz;Germany;https://www.konstanz-gegen-ttip.de/;Trade/Economy;Democracy;
+Umweltinstitut München;Munich;Germany;https://umweltinstitut.org/;Energy/Climate/Sustainability;Trade/Economy;
+test;test;Germany;https://test.de;other;;
+COSPE ETS;Florence;Italy;https://www.cospe.org/;Human/Fundamental rights;Migration;
+Support Office for Student Volunteers Activities, Doshisha University;Kyoto;Japan;https://volunteer.doshisha.ac.jp/network/;Human/Fundamental rights;Migration;
+SEPLA;Mexico City;Mexico;https://sepla21.org/;Trade/Economy;Democracy;
+Otros Mundos Chiapas;San Cristóbal de las Casas;Mexico;https://otrosmundoschiapas.org/;Trade/Economy;Energy/Climate/Sustainability;Human/Fundamental rights
+Friends of the Earth International;Amsterdam;Netherlands;https://www.foei.org;Energy/Climate/Sustainability;;
+Global Forest Coalition;Amsterdam;Netherlands;https://globalforestcoalition.org/;Energy/Climate/Sustainability;Human/Fundamental rights;Democracy
+Handel Anders!;Amsterdam;Netherlands;https://handelanders.nl/en;Trade/Economy;Energy/Climate/Sustainability;Democracy
+Heñói Centro de Estudios;Asunción;Paraguay;https://henoi.org.py/index.php/en/home/;Human/Fundamental rights;Energy/Climate/Sustainability;
+SOBREVIVENCIA, Amigos de la Tierra Paraguay;Asunción;Paraguay;https://www.sobrevivencia.org.py/;Energy/Climate/Sustainability;Trade/Economy;
+RedGE;Lima;Peru;https://www.redge.org.pe/;Trade/Economy;Energy/Climate/Sustainability;Human/Fundamental rights
+Center for Cultural Decontamination;Belgrade;Serbia;https://www.czkd.org/en/about-us/#:~:text=The%20Center%20for%20Cultural%20Decontamination%20%28CZKD%29%20is%20a,on%20critical%20thinking%2C%20and%20cultural%20and%20artistic%20production;Democracy;;
+DAH Teatar;Belgrade;Serbia;https://en.dahteatarcentar.com/;Migration;Conflict/War;
+Creación Positiva;Barcelona;Spain;https://www.creacionpositiva.org/;Migration;Human/Fundamental rights;
+GRAIN;Barcelona;Spain;https://grain.org/;Trade/Economy;Energy/Climate/Sustainability;
+Research & Degrowth International;Barcelona;Spain;https://degrowth.org;Energy/Climate/Sustainability;Trade/Economy;
+Taula per Méxic;Barcelona;Spain;https://www.taulapermexic.org/;Human/Fundamental rights;;
+Attac España;Madrid;Spain;https://attac.es/;Trade/Economy;Democracy;
+Fridays for Future;Stockholm;Sweden;https://eci.fridaysforfuture.org/en/;Democracy;Trade/Economy;Energy/Climate/Sustainability
+Transform Trade;Newcastle upon Tyne;United Kingdom;https://www.transform-trade.org/;Trade/Economy;Human/Fundamental rights;
+Batani Foundation;Massachusetts;United States of America;https://www.batani.org;Human/Fundamental rights;Democracy;
+REEES. University of Pittsburgh;Pittsburgh;United States of America;https://www.ucis.pitt.edu/crees/;Under discussion;Energy/Climate/Sustainability;`;
+
+
+    // Parse and build org objects
+    const organizations = [];
+    const lines = CSV.split(/\n/).filter(Boolean);
+    lines.shift();
+
+    lines.forEach(line => {
+      const parts = line.split(/;|\t/).map(x => x.trim());
+      const [name, rawCity, rawCountry, website, p, s, t] = parts;
+      const city = normalize.city(rawCity);
+      const country = normalize.country(rawCountry);
+      const key = `${city},${country}`;
+      const ll = CITY_LL[key];
+      if(!ll) return;
+
+      // Originalkategorien fuer das Popup behalten; fuer Filter und Farbe
+      // werden die beiden nicht eigenstaendigen Domains unter other gruppiert.
+      const cats = [normalize.cat(p), normalize.cat(s), normalize.cat(t)].filter(Boolean);
+      const filterCats = Array.from(new Set(
+        cats.map(cat => {
+          const key = cat.toLowerCase();
+          return (key === 'under discussion' || key === 'active citizenship')
+            ? 'other'
+            : cat;
+        })
+      ));
+      const primary = filterCats[0] || 'other';
+
+      organizations.push({
+        name,
+        city,
+        country,
+        latlng: ll,
+        website: normalize.url(website),
+        categories: cats,
+        filterCategories: filterCats,
+        primary
+      });
+    });
+
+    function makeDivIcon(color){
+      const div = document.createElement('div');
+      div.className = 'marker-dot';
+      div.style.background = color;
+      return L.divIcon({ className: '', html: div.outerHTML, iconSize: [16,16], iconAnchor: [8,8] });
+    }
+
+    const cluster = L.markerClusterGroup({
+      spiderfyOnMaxZoom: false,
+      zoomToBoundsOnClick: false,
+      showCoverageOnHover: false,
+      maxClusterRadius: 45,
+      spiderfyDistanceMultiplier: 1.2
+    });
+
+    cluster.on('clusterclick', function (a) {
+      const childMarkers = a.layer.getAllChildMarkers();
+
+  // Checking if all markers inside the cluster have the same coordinates
+      const sameCoordinates = childMarkers.every(marker => {
+        const markerLatLng = marker.getLatLng();
+        const firstLatLng = childMarkers[0].getLatLng();
+
+        return (
+          markerLatLng.lat === firstLatLng.lat &&
+          markerLatLng.lng === firstLatLng.lng
+        );
+      });
+
+  // Case 1: several Organizations at the exact same coordinates
+  // => do not zoom in any further, but fan out directly
+      if (sameCoordinates) {
+        map.panTo(a.layer.getLatLng(), {
+          animate: true
+        });
+
+        setTimeout(function () {
+          a.layer.spiderfy();
+        }, 250);
+
+        return;
+      }
+
+  // Case 2: Cluster contains different coordinates
+  // => zoom in with buffer towards the browser edge
+      const childBounds = a.layer.getBounds();
+
+      if (map.getZoom() < map.getMaxZoom()) {
+        const panel = document.querySelector('.control-panel');
+        const panelRect = panel ? panel.getBoundingClientRect() : null;
+        const panelWidth = panelRect ? Math.ceil(panelRect.width) : 0;
+
+        // Keep every child location inside the unobstructed map area.
+        const clusterRightPadding = panelWidth > 0
+          ? panelWidth + 48
+          : 120;
+
+        map.fitBounds(childBounds, {
+          paddingTopLeft: [120, 120],
+          paddingBottomRight: [clusterRightPadding, 120],
+          maxZoom: map.getMaxZoom(),
+          animate: true
+        });
+      } else {
+        map.panTo(a.layer.getLatLng(), {
+          animate: true
+        });
+
+        setTimeout(function () {
+          a.layer.spiderfy();
+        }, 250);
+      }
+    });
+
+    map.addLayer(cluster);
+
+    function keepSpiderfiedMarkersClearOfPanel(event){
+      const markers = event?.markers || [];
+      if (!markers.length) return;
+
+      requestAnimationFrame(() => {
+        const panel = document.querySelector('.control-panel');
+        const panelRect = panel ? panel.getBoundingClientRect() : null;
+        const mapRect = map.getContainer().getBoundingClientRect();
+
+        const leftLimit = mapRect.left + 24;
+        const rightLimit = panelRect
+          ? Math.min(mapRect.right - 24, panelRect.left - 24)
+          : mapRect.right - 24;
+        const topLimit = mapRect.top + 24;
+        const bottomLimit = mapRect.bottom - 24;
+
+        const points = markers.map(marker =>
+          map.latLngToContainerPoint(marker.getLatLng())
+        );
+
+        const minX = Math.min(...points.map(p => p.x)) + mapRect.left;
+        const maxX = Math.max(...points.map(p => p.x)) + mapRect.left;
+        const minY = Math.min(...points.map(p => p.y)) + mapRect.top;
+        const maxY = Math.max(...points.map(p => p.y)) + mapRect.top;
+
+        let shiftX = 0;
+        let shiftY = 0;
+
+        if (maxX > rightLimit) shiftX += maxX - rightLimit;
+        if (minX - shiftX < leftLimit) shiftX -= leftLimit - (minX - shiftX);
+
+        if (maxY > bottomLimit) shiftY += maxY - bottomLimit;
+        if (minY - shiftY < topLimit) shiftY -= topLimit - (minY - shiftY);
+
+        if (Math.abs(shiftX) > 1 || Math.abs(shiftY) > 1){
+          map.panBy([shiftX, shiftY], { animate: true, duration: 0.25 });
+        }
+      });
+    }
+
+    if (typeof cluster !== 'undefined' && cluster?.on){
+      cluster.off?.('spiderfied', keepSpiderfiedMarkersClearOfPanel);
+      cluster.on('spiderfied', keepSpiderfiedMarkersClearOfPanel);
+    }
+
+    // Keep an opened popup out from underneath the right-hand filter/legend
+    // panel. Leaflet's normal auto-pan only knows about the browser edges, not
+    // about this custom overlay.
+    function keepOpenPopupClearOfPanel(event){
+      const popupEl = event?.popup?.getElement?.();
+      const panel = document.querySelector('.control-panel');
+      const mapEl = map.getContainer();
+
+      if (!popupEl || !panel || !mapEl) return;
+
+      // Wait until Leaflet has finished positioning/autopanning the popup.
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          const popupRect = popupEl.getBoundingClientRect();
+          const panelRect = panel.getBoundingClientRect();
+          const mapRect = mapEl.getBoundingClientRect();
+          const gap = 18;
+
+          const leftLimit = mapRect.left + gap;
+          const topLimit = mapRect.top + gap;
+          const bottomLimit = mapRect.bottom - gap;
+
+          const overlapsPanelVertically =
+            popupRect.bottom > panelRect.top - gap &&
+            popupRect.top < panelRect.bottom + gap;
+
+          const rightLimit = overlapsPanelVertically
+            ? Math.min(mapRect.right - gap, panelRect.left - gap)
+            : mapRect.right - gap;
+
+          let shiftX = 0;
+          let shiftY = 0;
+
+          // Positive panBy x moves map content (and therefore the popup) left.
+          if (popupRect.right > rightLimit) {
+            shiftX += popupRect.right - rightLimit;
+          }
+
+          // Do not solve the right-side overlap by pushing the popup through
+          // the left edge of the map.
+          if (popupRect.left - shiftX < leftLimit) {
+            shiftX -= leftLimit - (popupRect.left - shiftX);
+          }
+
+          if (popupRect.bottom > bottomLimit) {
+            shiftY += popupRect.bottom - bottomLimit;
+          }
+
+          if (popupRect.top - shiftY < topLimit) {
+            shiftY -= topLimit - (popupRect.top - shiftY);
+          }
+
+          if (Math.abs(shiftX) > 1 || Math.abs(shiftY) > 1) {
+            map.panBy(
+              [shiftX, shiftY],
+              { animate: true, duration: 0.25 }
+            );
+          }
+        });
+      });
+    }
+
+    map.on('popupopen', keepOpenPopupClearOfPanel);
+
+    let allMarkers = [];
+
+    /* VALEUS_FLOW_POPUP_HELPERS_START */
+    function flowEscapeHtml(value){
+      return String(value == null ? '' : value)
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#039;');
+    }
+
+    function flowDetailKey(name, city, country){
+      const norm = value => String(value || '').trim().replace(/\s+/g, ' ').toLowerCase();
+      return `${norm(name)}||${norm(city)}||${norm(country)}`;
+    }
+
+    function flowSafeUrl(value){
+      let raw = String(value || '').trim();
+      if(!raw) return '';
+      if(!/^https?:\/\//i.test(raw)) raw = `https://${raw}`;
+      try {
+        const u = new URL(raw);
+        return (u.protocol === 'http:' || u.protocol === 'https:') ? u.href : '';
+      } catch(e) {
+        return '';
+      }
+    }
+
+    function buildRichOrganizationPopup(o){
+      const detail = ORG_DETAILS[flowDetailKey(o.name, o.city, o.country)] || {};
+      const orgType = detail.type || '';
+      const headquarters = [detail.city || o.city, detail.country || o.country]
+        .filter(Boolean).join(', ');
+      const website = detail.website || o.website || '';
+      const href = flowSafeUrl(website);
+
+      const websiteHtml = website
+        ? (href
+            ? `<a href="${flowEscapeHtml(href)}" target="_blank" rel="noopener noreferrer">${flowEscapeHtml(website)}</a>`
+            : flowEscapeHtml(website))
+        : '<em>Not specified</em>';
+
+      const projects = Array.isArray(detail.projects) ? detail.projects : [];
+
+      const projectsHtml = projects.length
+        ? projects.map(project => {
+            const projectHref = flowSafeUrl(project.website || '');
+            const projectLink = projectHref
+              ? `<a class="flow-popup-project-link" href="${flowEscapeHtml(projectHref)}" target="_blank" rel="noopener noreferrer" title="Open project website" aria-label="Open project website">↗</a>`
+              : '';
+            const description = project.description
+              ? `<div class="flow-popup-project-description"><strong>Description:</strong> ${flowEscapeHtml(project.description)}</div>`
+              : '';
+            const countries = project.countries
+              ? `<div class="flow-popup-line"><strong>Countries of engagement:</strong> ${flowEscapeHtml(project.countries)}</div>`
+              : '';
+            const domains = project.actionDomains
+              ? `<div class="flow-popup-line"><strong>Action domain:</strong> ${flowEscapeHtml(project.actionDomains)}</div>`
+              : '';
+            const kinds = project.kindsOfAction
+              ? `<div class="flow-popup-line"><strong>Kind of action:</strong> ${flowEscapeHtml(project.kindsOfAction)}</div>`
+              : '';
+
+            return `
+              <div class="flow-popup-project">
+                <div class="flow-popup-project-title">${flowEscapeHtml(project.name || 'Untitled project')}${projectLink}</div>
+                ${description}
+                ${countries}
+                ${domains}
+                ${kinds}
+              </div>`;
+          }).join('')
+        : `<div class="flow-popup-line"><em>No project information is available for this organisation.</em></div>`;
+
+      const fallbackDomains = (!projects.length && o.categories && o.categories.length)
+        ? `<div class="flow-popup-line"><strong>Action domains:</strong> ${flowEscapeHtml(o.categories.join(', '))}</div>`
+        : '';
+
+      return `
+        <div class="flow-popup">
+          <div class="flow-popup-type">Organization</div>
+          <div class="flow-popup-title">${flowEscapeHtml(o.name)}</div>
+
+          <div class="flow-popup-section">
+            <div class="flow-popup-label">Description</div>
+            <div class="flow-popup-line"><strong>Type:</strong> ${orgType ? flowEscapeHtml(orgType) : '<em>Not specified</em>'}</div>
+            <div class="flow-popup-line"><strong>Headquarters:</strong> ${flowEscapeHtml(headquarters)}</div>
+            <div class="flow-popup-line"><strong>Website:</strong> ${websiteHtml}</div>
+          </div>
+
+          <div class="flow-popup-section">
+            <div class="flow-popup-label">Projects</div>
+            ${projectsHtml}
+            ${fallbackDomains}
+          </div>
+        </div>`;
+    }
+    /* VALEUS_FLOW_POPUP_HELPERS_END */
+
+    function render(data){
+      cluster.clearLayers();
+
+      allMarkers = data.map(o => {
+        const icon = makeDivIcon(CAT_COLORS[o.primary] || CAT_COLORS['other']);
+        const m = L.marker(o.latlng, { icon });
+        m.bindTooltip(o.name);
+
+        m.bindPopup(
+          buildRichOrganizationPopup(o),
+          {
+            maxWidth: 460,
+            minWidth: 320,
+            autoPan: true,
+            keepInView: true
+          }
+        );
+
+        m.__data = o;
+        return m;
+      });
+
+      cluster.addLayers(allMarkers);
+      fitAll();
+    }
+
+    const legendEl = document.getElementById('legend');
+    const ALL_CATS = Array.from(new Set(
+      organizations.flatMap(o =>
+        o.filterCategories.length ? o.filterCategories : ['other']
+      )
+    )).sort();
+
+    ALL_CATS.forEach(cat => {
+      const li = document.createElement('li');
+      li.className = 'legend-item';
+
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.checked = true;
+      cb.dataset.cat = cat;
+      cb.addEventListener('change', applyFilters);
+
+      const sw = document.createElement('span');
+      sw.className = 'swatch';
+      sw.style.background = CAT_COLORS[cat] || CAT_COLORS['other'];
+
+      const label = document.createElement('span');
+      label.textContent = ' ' + cat;
+
+      li.appendChild(sw);
+      li.prepend(cb);
+      li.appendChild(label);
+      legendEl.appendChild(li);
+    });
+
+    document.getElementById('search').addEventListener('input', applyFilters);
+
+    function applyFilters(){
+      const q = document.getElementById('search').value.trim().toLowerCase();
+      const activeCats = Array.from(document.querySelectorAll('#legend input[type="checkbox"]:checked'))
+        .map(x => x.dataset.cat);
+
+      const filtered = organizations.filter(o =>
+        (!q || o.name.toLowerCase().includes(q)) &&
+        (o.filterCategories.length
+          ? o.filterCategories.some(c => activeCats.includes(c))
+          : activeCats.includes('other'))
+      );
+
+      render(filtered);
+    }
+
+    function fitAll(){
+      if(!allMarkers.length) return;
+
+      const fg = L.featureGroup(allMarkers);
+
+      requestAnimationFrame(() => {
+        const panel = document.querySelector('.control-panel');
+        const panelRect = panel ? panel.getBoundingClientRect() : null;
+        const panelWidth = panelRect ? Math.ceil(panelRect.width) : 0;
+
+        // Panel is on the RIGHT: reserve that space when fitting markers.
+        const rightPadding = panelWidth > 0 ? panelWidth + 36 : 36;
+
+        try {
+          map.invalidateSize(false);
+          map.fitBounds(
+            fg.getBounds(),
+            {
+              paddingTopLeft: [36, 36],
+              paddingBottomRight: [rightPadding, 36],
+              maxZoom: 12,
+              animate: false
+            }
+          );
+        } catch(e) {}
+      });
+    }
+
+    const FitControl = L.Control.extend({
+      options: { position: 'topleft' },
+      onAdd: function(){
+        const div = L.DomUtil.create('div', 'leaflet-control custom-fit');
+        const btn = L.DomUtil.create('button', 'fit-btn', div);
+        btn.type = 'button';
+        btn.title = 'Zoom to show all organizations';
+        btn.innerHTML = '⤢ Show all';
+        L.DomEvent.on(btn, 'click', (e) => {
+          L.DomEvent.stop(e);
+          fitAll();
+        });
+        return div;
+      }
+    });
+
+    map.addControl(new FitControl());
+
+    render(organizations);
+
+    const panel = document.querySelector('.control-panel');
+    const toggleBtn = document.getElementById('toggle-panel');
+    let collapsed = false;
+
+    toggleBtn.addEventListener('click', () => {
+      collapsed = !collapsed;
+
+      if (collapsed) {
+        panel.style.height = '40px';
+        panel.style.overflow = 'hidden';
+        toggleBtn.textContent = '+';
+      } else {
+        panel.style.height = '';
+        panel.style.overflow = 'auto';
+        toggleBtn.textContent = '−';
+      }
+
+      setTimeout(fitAll, 50);
+    });
+  </script>
+</body>
+</html>
