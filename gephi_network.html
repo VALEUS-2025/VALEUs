@@ -1,0 +1,1585 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Interactive Gephi Diagram</title>
+  <style>
+    :root{
+      --panel-w: 280px;
+      --pad: 12px;
+      --gap: 10px;
+      --radius: 10px;
+      --shadow: 0 2px 10px rgba(0,0,0,0.14);
+      --border: 1px solid rgba(0,0,0,0.10);
+      --font: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #ffffff;
+    }
+
+    #container {
+      width: 100vw;
+      height: 100vh;
+      background: #ffffff;
+    }
+
+    /* Geometric sidebar */
+    #sidebar {
+      position: fixed;
+      top: 12px;
+      left: 12px;
+      z-index: 9999;
+      width: var(--panel-w);
+      display: grid;
+      gap: var(--gap);
+      pointer-events: auto;
+      font-family: var(--font);
+      color: #111;
+    }
+
+    .panel {
+      background: rgba(255,255,255,0.96);
+      border: var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: var(--pad);
+    }
+
+    .panel-title {
+      font-weight: 700;
+      font-size: 13px;
+      letter-spacing: 0.2px;
+      margin: 0 0 8px 0;
+    }
+
+    .controls-row{
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 8px;
+    }
+
+    button {
+      height: 36px;
+      border-radius: 9px;
+      border: 1px solid rgba(0,0,0,0.16);
+      background: #fff;
+      cursor: pointer;
+      font-size: 13px;
+      line-height: 1;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      user-select: none;
+    }
+
+    button:hover { background: rgba(0,0,0,0.03); }
+    button:active { transform: translateY(1px); }
+
+    .hint {
+      margin-top: 8px;
+      font-size: 12px;
+      opacity: 0.70;
+    }
+
+    .filters-grid{
+      display: grid;
+      gap: 6px;
+    }
+
+    label {
+      display: grid;
+      grid-template-columns: 18px 1fr;
+      align-items: center;
+      gap: 10px;
+      margin: 0;
+      font-size: 13px;
+      line-height: 1.2;
+      padding: 6px 8px;
+      border-radius: 8px;
+    }
+
+    label:hover { background: rgba(0,0,0,0.03); }
+
+    input[type="checkbox"]{
+      width: 16px;
+      height: 16px;
+      margin: 0;
+      accent-color: #111;
+    }
+
+    .year-row{
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 8px;
+      font-size: 13px;
+    }
+
+    #yearValue{
+      font-variant-numeric: tabular-nums;
+      font-weight: 700;
+      min-width: 44px;
+      text-align: right;
+    }
+
+    input[type="range"]{
+      width: 100%;
+      margin: 0;
+      height: 28px;
+    }
+
+    .small-note{
+      margin-top: 8px;
+      font-size: 12px;
+      opacity: 0.70;
+      line-height: 1.25;
+    }
+  
+    #filters label {
+      grid-template-columns: 18px 12px 1fr;
+    }
+
+    .node-swatch {
+      display: block;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      border: 1px solid rgba(0,0,0,.20);
+      box-sizing: border-box;
+    }
+
+    .filter-explainer {
+      margin-top: 10px;
+      padding-top: 9px;
+      border-top: 1px solid rgba(0,0,0,.08);
+      font-size: 10.5px;
+      line-height: 1.4;
+      color: #666;
+    }
+  
+    .period-scale {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      margin-top: -2px;
+      font-size: 10px;
+      opacity: 0.72;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .period-scale span {
+      white-space: nowrap;
+    }
+  
+    #nodeInfo {
+      position: fixed;
+      top: 12px;
+      right: 12px;
+      z-index: 10000;
+      width: min(360px, calc(100vw - 24px));
+      max-height: calc(100vh - 24px);
+      overflow-y: auto;
+      display: none;
+      box-sizing: border-box;
+      padding: 14px;
+      background: rgba(255,255,255,0.97);
+      border: var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      font-family: var(--font);
+      color: #111;
+      pointer-events: auto;
+    }
+
+    #nodeInfo.visible {
+      display: block;
+    }
+
+    #nodeInfo .info-type {
+      margin-bottom: 4px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+      opacity: .58;
+    }
+
+    #nodeInfo .info-title {
+      margin: 0 0 11px;
+      font-size: 15px;
+      font-weight: 700;
+      line-height: 1.3;
+      overflow-wrap: anywhere;
+    }
+
+    #nodeInfo .info-row {
+      padding: 8px 0;
+      border-top: 1px solid rgba(0,0,0,.08);
+    }
+
+    #nodeInfo .info-label {
+      margin-bottom: 3px;
+      font-size: 11px;
+      font-weight: 700;
+      opacity: .62;
+    }
+
+    #nodeInfo .info-value {
+      font-size: 12.5px;
+      line-height: 1.35;
+      overflow-wrap: anywhere;
+      white-space: pre-line;
+    }
+
+    #nodeInfo .country-group-gap {
+      height: 8px;
+    }
+  
+    .small-note,
+    .filter-explainer {
+      font-size: 12px;
+      line-height: 1.25;
+      text-align: justify;
+      text-justify: inter-word;
+      hyphens: auto;
+    }
+  
+    /* Reliable project-date range selector */
+    #yearControl {
+      display: none !important;
+    }
+
+    #yearRangeControl {
+      margin-top: 2px;
+    }
+
+    #yearRangeValue {
+      font-variant-numeric: tabular-nums;
+      font-weight: 700;
+      min-width: 72px;
+      text-align: right;
+    }
+
+    .year-range-slider {
+      --range-start: 0%;
+      --range-end: 100%;
+      position: relative;
+      height: 28px;
+      margin-top: 3px;
+    }
+
+    .year-range-track {
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 12px;
+      height: 4px;
+      border-radius: 999px;
+      background: linear-gradient(
+        to right,
+        #d8d8d8 0%,
+        #d8d8d8 var(--range-start),
+        #666 var(--range-start),
+        #666 var(--range-end),
+        #d8d8d8 var(--range-end),
+        #d8d8d8 100%
+      );
+      pointer-events: none;
+    }
+
+    .year-range-slider input[type='range'] {
+      position: absolute;
+      left: 0;
+      top: 2px;
+      width: 100%;
+      height: 24px;
+      margin: 0;
+      padding: 0;
+      background: transparent;
+      pointer-events: none;
+      appearance: none;
+      -webkit-appearance: none;
+    }
+
+    .year-range-slider input[type='range']::-webkit-slider-runnable-track {
+      height: 4px;
+      background: transparent;
+      border: 0;
+    }
+
+    .year-range-slider input[type='range']::-moz-range-track {
+      height: 4px;
+      background: transparent;
+      border: 0;
+    }
+
+    .year-range-slider input[type='range']::-webkit-slider-thumb {
+      width: 16px;
+      height: 16px;
+      margin-top: -6px;
+      border: 2px solid #fff;
+      border-radius: 50%;
+      background: #555;
+      box-shadow: 0 1px 4px rgba(0,0,0,.28);
+      cursor: pointer;
+      pointer-events: auto;
+      appearance: none;
+      -webkit-appearance: none;
+    }
+
+    .year-range-slider input[type='range']::-moz-range-thumb {
+      width: 14px;
+      height: 14px;
+      border: 2px solid #fff;
+      border-radius: 50%;
+      background: #555;
+      box-shadow: 0 1px 4px rgba(0,0,0,.28);
+      cursor: pointer;
+      pointer-events: auto;
+    }
+
+    .year-range-scale {
+      display: flex;
+      justify-content: space-between;
+      margin-top: -2px;
+      font-size: 10px;
+      opacity: .72;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .year-range-note {
+      margin-top: 7px;
+    }
+  
+    #nodeInfo .org-description-line + .org-description-line {
+      margin-top: 4px;
+    }
+
+    #nodeInfo .info-value a {
+      color: inherit;
+      text-decoration: underline;
+      text-underline-offset: 2px;
+    }
+  
+    #nodeInfo .info-list-entry-link {
+      color: inherit !important;
+      text-decoration: none !important;
+    }
+
+    #nodeInfo .info-list-entry-text {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    #nodeInfo .info-list-entry-link .info-list-link {
+      display: inline-block;
+      margin-left: 5px;
+      color: #2563eb !important;
+      font-size: 11px;
+      font-weight: 700;
+      line-height: 1;
+      opacity: 1;
+      text-decoration: none !important;
+      vertical-align: baseline;
+    }
+  
+    #explorePanel {
+      max-height: none;
+      min-height: 0;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+    }
+
+    #explorePanel .filter-explainer {
+      margin: 0 0 12px;
+      padding: 0 0 11px;
+      border-top: 0;
+      border-bottom: 1px solid rgba(0,0,0,.08);
+      color: #444;
+      font-size: 12px;
+      line-height: 1.35;
+      text-align: justify;
+      text-justify: inter-word;
+      hyphens: none;
+      overflow-wrap: normal;
+      word-break: normal;
+    }
+
+    #explorePanel .panel-section-title {
+      margin: 0 0 8px;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: .2px;
+    }
+
+    #explorePanel #filters {
+      margin-bottom: 12px;
+      padding-bottom: 11px;
+      border-bottom: 1px solid rgba(0,0,0,.08);
+    }
+
+    #explorePanel .time-section-title {
+      margin-top: 0;
+    }
+
+    #explorePanel #yearControl .small-note {
+      display: none;
+    }
+  
+    #nodeInfo .info-title-link {
+      display: inline-block;
+      margin-left: 6px;
+      font-size: 13px;
+      font-weight: 700;
+      line-height: 1;
+      opacity: .72;
+      text-decoration: none !important;
+      vertical-align: baseline;
+    }
+
+    #nodeInfo .info-title-link:hover {
+      opacity: 1;
+    }
+
+    #nodeInfo .project-description-value {
+      text-align: justify;
+      text-justify: inter-word;
+      hyphens: none;
+    }
+
+    #explorePanel .filter-explainer {
+      text-align: justify !important;
+      text-justify: inter-word !important;
+      hyphens: none !important;
+    }
+  
+    #nodeInfo .org-project-list {
+      white-space: normal;
+    }
+
+    #nodeInfo .org-project-group + .org-project-group {
+      margin-top: 9px;
+    }
+
+    #nodeInfo .org-project-org {
+      font-weight: 600;
+      line-height: 1.35;
+    }
+
+    #nodeInfo .org-project-projects {
+      margin-top: 3px;
+      padding-left: 15px;
+    }
+
+    #nodeInfo .org-project-project {
+      position: relative;
+      padding-left: 9px;
+      line-height: 1.35;
+    }
+
+    #nodeInfo .org-project-project + .org-project-project {
+      margin-top: 2px;
+    }
+
+    #nodeInfo .org-project-project::before {
+      content: "–";
+      position: absolute;
+      left: 0;
+      opacity: .55;
+    }
+  
+    #nodeInfo .org-project-period-inline {
+      font-weight: 400;
+      opacity: .68;
+      white-space: nowrap;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="sidebar">
+    <div class="panel" id="controls">
+      <div class="panel-title">Layout</div>
+      <div class="controls-row">
+        <button id="toggle">⏸ Pause</button>
+        <button id="noverlap">✨ Space</button>
+       
+      </div>
+      <div class="hint">“Space” pauses and spreads clustered neighbors around projects.</div>
+    </div>
+
+    <div class="panel" id="explorePanel">
+      <div class="filter-explainer">The network shows how civil-society projects connect organisations with countries and addressees through action domains and specific kinds of action.<br><br>Explore the various layers of projects-based civil society engagement by selecting nodes, applying filters or using the time slider. Direct links help you explore the websites of the organizations and projects involved.</div>
+      <div class="panel-section-title">Filter</div>
+      <div id="filters">
+      <div class="filters-grid">
+          <label><input type="checkbox" value="Country" checked style="accent-color:#2fded2"> <span class="node-swatch" style="background:#2fded2"></span> <span>Country</span></label>
+          <label><input type="checkbox" value="Addressee" checked style="accent-color:#FFDF00"> <span class="node-swatch" style="background:#FFDF00"></span> <span>Addressee</span></label>
+          <label><input type="checkbox" value="Organization" checked style="accent-color:#7251BC"> <span class="node-swatch" style="background:#7251BC"></span> <span>Organization</span></label>
+          <label><input type="checkbox" value="Action Domain" checked style="accent-color:#F99B0C"> <span class="node-swatch" style="background:#F99B0C"></span> <span>Action Domain</span></label>
+          <label><input type="checkbox" value="Kind of Action" checked style="accent-color:#7CCF19"> <span class="node-swatch" style="background:#7CCF19"></span> <span>Kind of Action</span></label>
+        </div>
+        
+    </div>
+
+    <div class="panel-section-title time-section-title">Time</div>
+      <!-- VALEUS_YEAR_RANGE_CONTROL_START -->
+      <div id="yearRangeControl">
+        <div class="year-row">
+          <div>Years</div>
+          <div id="yearRangeValue">1997–2026</div>
+        </div>
+        <div class="year-range-slider" id="yearRangeSliderWrap">
+          <div class="year-range-track"></div>
+          <input type="range" id="yearStartSlider" min="1997" max="2026" value="1997" step="1" aria-label="Start year">
+          <input type="range" id="yearEndSlider" min="1997" max="2026" value="2026" step="1" aria-label="End year">
+        </div>
+        <div class="year-range-scale">
+          <span>1997</span>
+          <span>2026</span>
+        </div>
+        <div class="small-note year-range-note">
+        </div>
+      </div>
+      <!-- VALEUS_YEAR_RANGE_CONTROL_END -->
+      <div id="yearControl">
+      <div class="year-row">
+        <div>Period</div>
+        <div id="yearValue">2010–2015</div>
+      </div>
+      <input type="range" id="yearSlider" min="0" max="2" value="0" step="1">
+      <div class="period-scale"><span>2010–2015</span><span>2015–2020</span><span>2020–2025</span></div>
+      <div class="small-note">
+        Non-project nodes appear only if linked to projects active in the selected year range.
+      </div>
+    </div>
+    </div>
+  </div>
+
+  <aside id="nodeInfo" aria-live="polite"></aside>
+  
+  <div id="container"></div>
+
+  <script type="module">
+    import Sigma from "https://cdn.jsdelivr.net/npm/sigma@3.0.2/+esm";
+    import Graph from "https://cdn.jsdelivr.net/npm/graphology@0.25.4/+esm";
+    import forceAtlas2 from "https://cdn.jsdelivr.net/npm/graphology-layout-forceatlas2/+esm";
+    import noverlap from "https://cdn.jsdelivr.net/npm/graphology-layout-noverlap/+esm";
+    document.addEventListener("DOMContentLoaded", () => {
+      fetch("./PrjAdd-2509.json")
+        .then(r => r.json())
+        .then(data => {
+          const g = new Graph();
+
+          function truncateLabel(s, n = 20) {
+            if (!s) return "";
+            return s.length > n ? s.slice(0, n - 1) + "…" : s;
+          }
+
+          function downloadURI(uri, name) {
+            const link = document.createElement("a");
+            link.href = uri;
+            link.download = name;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+          }
+
+                              const colorMap = {
+            Country: "#2fded2",
+            Project: "#FF5955",
+            Organization: "#7251BC",
+            Addressee: "#FFDF00",
+            "Action Domain": "#F99B0C",
+            "Kind of Action": "#7CCF19"
+          };
+
+          const actionTypes = new Set([
+            "Research", "Monitoring", "Capacity Building", "Advocacy",
+            "Protest", "Education/Literacy", "engaged art"
+          ]);
+
+          // Nodes
+          data.nodes.forEach(n => {
+            let m = n.attributes.metaType || "";
+            if (actionTypes.has(m)) m = "Kind of Action";
+
+            const col = colorMap[m] || "rgb(0,0,0)";
+
+            const rawSize = Number(n.attributes.size);
+            const safeRawSize = Number.isFinite(rawSize) ? rawSize : 1;
+            const scaledSize = Math.max(2, Math.min(18, Math.sqrt(safeRawSize) * 2));
+
+            const rawStartYear = n.attributes.startYear;
+            const rawEndYear = n.attributes.endYear;
+
+            const sY =
+              rawStartYear === null ||
+              rawStartYear === undefined ||
+              rawStartYear === ""
+                ? NaN
+                : Number(rawStartYear);
+
+            const eY =
+              rawEndYear === null ||
+              rawEndYear === undefined ||
+              rawEndYear === ""
+                ? NaN
+                : Number(rawEndYear);
+
+            g.addNode(n.key, {
+              label: n.attributes.label,
+              x: Number(n.attributes.x),
+              y: Number(n.attributes.y),
+              size: scaledSize,
+              color: col,
+              metaType: m,
+              startYear: Number.isFinite(sY) ? sY : null,
+              endYear: Number.isFinite(eY) ? eY : null,
+                            ongoing: (
+                              n.attributes.ongoing === true ||
+                              n.attributes.ongoing === 1 ||
+                              String(n.attributes.ongoing || "").toLowerCase() === "true" ||
+                              String(n.attributes.temporalStatus || "").trim().toLowerCase().startsWith("ongoing")
+                            ),
+                            startDate: n.attributes.startDate || "",
+                            endDate: n.attributes.endDate || "",
+                            temporalType: n.attributes.temporalType || "",
+                            temporalStatus: n.attributes.temporalStatus || "",
+                            dateConfidence: n.attributes.dateConfidence || "",
+                            dateBasis: n.attributes.dateBasis || "",
+                            dateSource: n.attributes.dateSource || "",
+                            dateSourceUrl: n.attributes.dateSourceUrl || "",
+              fullTitle: n.attributes.fullTitle || n.attributes.label || "",
+              description: n.attributes.description || "",
+                            organizationType: n.attributes.organizationType || "",
+                            organizationHeadquarters: n.attributes.organizationHeadquarters || "",
+                            organizationWebsite: n.attributes.organizationWebsite || "",
+              projectWebsite: n.attributes.projectWebsite || "",
+              organizations: n.attributes.organizations || [],
+              countries: n.attributes.countries || [],
+              countryGroups: n.attributes.countryGroups || [],
+              linkedProjects: n.attributes.linkedProjects || [],
+              actionDomains: n.attributes.actionDomains || [],
+              kindsOfAction: n.attributes.kindsOfAction || [],
+              addressees: n.attributes.addressees || []
+            });
+          });
+
+          // Edges
+          data.edges.forEach((e, i) => {
+            const edgeKey = e.key || "e" + i;
+            const edgeAttrs = {
+              size: Number(e.attributes?.weight) || 1,
+              color: "#bdbdbd",
+              label: e.attributes?.relation || ""
+            };
+
+            if (e.undirected) {
+              if (!g.hasUndirectedEdge(e.source, e.target)) {
+                g.addUndirectedEdgeWithKey(edgeKey, e.source, e.target, edgeAttrs);
+              }
+            } else {
+              if (!g.hasEdge(e.source, e.target)) {
+                g.addEdgeWithKey(edgeKey, e.source, e.target, edgeAttrs);
+              }
+            }
+          });
+
+          // Renderer
+          const container = document.getElementById("container");
+          const renderer = new Sigma(g, container);
+
+          renderer.setSetting("defaultEdgeColor", "#bdbdbd");
+          renderer.setSetting("edgeColor", "color");
+          renderer.setSetting("labelDensity", 0.08);
+          renderer.setSetting("labelGridCellSize", 90);
+          renderer.setSetting("labelRenderedSizeThreshold", 10);
+
+          renderer.getCamera().animatedReset({ duration: 600 });
+
+          // State
+          /* VALEUS_PROJECT_TIME_REGISTRY_START */
+const PROJECT_TIME = {"Constructores de Paz: Una estrategia de reincorporaci n social y econ mica para la reconciliaci n y fortalecimiento del desarrollo local":{"startYear":2019,"endYear":null,"ongoing":false,"temporalStatus":"Completed / end not confirmed"},"Weaving Joint Actions (Tejiendo acciones conjuntas)":{"startYear":2020,"endYear":2024,"ongoing":false,"temporalStatus":"Completed"},"GenderRecovery":{"startYear":2025,"endYear":2025,"ongoing":false,"temporalStatus":"One-off publication"},"StateDigital":{"startYear":2025,"endYear":2025,"ongoing":false,"temporalStatus":"One-off publication"},"AccessionYear":{"startYear":2025,"endYear":2025,"ongoing":false,"temporalStatus":"One-off publication"},"MediaCoverage V4":{"startYear":2018,"endYear":2019,"ongoing":false,"temporalStatus":"Completed"},"SafeBorder":{"startYear":2019,"endYear":2020,"ongoing":false,"temporalStatus":"Completed / documented activity bound"},"Bordermng":{"startYear":2019,"endYear":null,"ongoing":false,"temporalStatus":"Completed / end not confirmed"},"The Euromap: profiles of regions":{"startYear":2018,"endYear":2021,"ongoing":false,"temporalStatus":"Completed / multi-edition"},"RespaJapon":{"startYear":2022,"endYear":2023,"ongoing":true,"temporalStatus":"Ongoing / umbrella activity"},"EUAXF":{"startYear":2022,"endYear":null,"ongoing":true,"temporalStatus":"Ongoing"},"InpokazEU":{"startYear":2025,"endYear":2025,"ongoing":false,"temporalStatus":"One-off briefing"},"Encuentro Formativo de Mujeres":{"startYear":2025,"endYear":2025,"ongoing":false,"temporalStatus":"Completed"},"Relaciones UE-América Latina":{"startYear":2017,"endYear":null,"ongoing":true,"temporalStatus":"Ongoing"},"Kyojyuken(International Housing Studies Association）":{"startYear":1997,"endYear":null,"ongoing":true,"temporalStatus":"Ongoing"},"Citizenship ED+ Active Citizenship Through Cross-Sectoral Cooperation":{"startYear":2025,"endYear":null,"ongoing":true,"temporalStatus":"Ongoing"},"EU youth dialog Croatia":{"startYear":2019,"endYear":null,"ongoing":true,"temporalStatus":"Completed"},"The fight for the right to participation and representation":{"startYear":2024,"endYear":2024,"ongoing":false,"temporalStatus":"Completed"},"Promoting human rights by strengthening the capacity of media and NGOs":{"startYear":2023,"endYear":2025,"ongoing":false,"temporalStatus":"Completed / end not confirmed"},"Your Voice Matters, Civic Tech Solutions for Decision-making":{"startYear":2022,"endYear":2024,"ongoing":false,"temporalStatus":"Completed"},"Your Voice Matters  Civic Tech Solutions for Decision-making":{"startYear":2020,"endYear":2025,"ongoing":false,"temporalStatus":""},"Your Voice Matters":{"startYear":2022,"endYear":2024,"ongoing":false,"temporalStatus":"Duplicate / legacy alias"},"Diversity in Culture and Activism":{"startYear":2020,"endYear":2022,"ongoing":false,"temporalStatus":"Completed"},"In/Visible City":{"startYear":2005,"endYear":null,"ongoing":true,"temporalStatus":"Ongoing / recurrent"},"Trees":{"startYear":2023,"endYear":2026,"ongoing":true,"temporalStatus":"Ongoing"},"The Power of Remembrance":{"startYear":2012,"endYear":2013,"ongoing":false,"temporalStatus":"Completed"},"GRANDE!":{"startYear":2021,"endYear":2025,"ongoing":false,"temporalStatus":"Completed"},"Policy Briefs":{"startYear":2023,"endYear":null,"ongoing":true,"temporalStatus":"Ongoing"},"IL FUTURO (IR)ROMPE":{"startYear":2025,"endYear":2025,"ongoing":false,"temporalStatus":"Completed"},"Back The Hague Group":{"startYear":2025,"endYear":null,"ongoing":true,"temporalStatus":"Ongoing"},"Transcaucasian trail":{"startYear":2021,"endYear":2022,"ongoing":true,"temporalStatus":"Ongoing"},"Grenzgespraeche":{"startYear":1997,"endYear":null,"ongoing":true,"temporalStatus":"Ongoing / recurrent"},"Buergerdialoge":{"startYear":2014,"endYear":null,"ongoing":true,"temporalStatus":"Ongoing / recurrent"},"Deutschland w hlt ? Demokratie-Workshops f r junge Menschen":{"startYear":2025,"endYear":2025,"ongoing":false,"temporalStatus":"Completed"},"#EurHope":{"startYear":2023,"endYear":2024,"ongoing":false,"temporalStatus":"Completed"},"Territorios Caquete os Sostenibles para la Paz":{"startYear":2018,"endYear":2022,"ongoing":false,"temporalStatus":"Completed"},"Alianza Camar n de Tumaco":{"startYear":2022,"endYear":2026,"ongoing":false,"temporalStatus":"Completed"},"Trade with local identity (Comercio con identidad local)":{"startYear":2020,"endYear":2024,"ongoing":false,"temporalStatus":"Completed"},"Environmental Citizenship for Water Use in Antioquia (Ciudadan a ambiental para el uso del agua en Antioquia)":{"startYear":2020,"endYear":2024,"ongoing":false,"temporalStatus":"Completed"},"Project::EU-Mercosur_Agreement":{"startYear":2019,"endYear":null,"ongoing":true,"temporalStatus":"Ongoing / recurring advocacy"},"Project::Ackervielfalt_-_vom_Feld_bis_in_den_Einkaufskorb":{"startYear":2021,"endYear":2024,"ongoing":false,"temporalStatus":"Completed"},"Project::Bäuerliche_Agroforste":{"startYear":2024,"endYear":2026,"ongoing":false,"temporalStatus":"Completed / inferred end"},"Project::Agro_é_Fogo_Dossier":{"startYear":2021,"endYear":2022,"ongoing":false,"temporalStatus":"Completed"},"Project::Argentina_no_se_Vende":{"startYear":2023,"endYear":null,"ongoing":true,"temporalStatus":"Ongoing"},"Project::Campaign_Against_Free_Trade_Agreements_(TLC)":{"startYear":2016,"endYear":null,"ongoing":true,"temporalStatus":"Ongoing / end not confirmed"},"Project::EU-Mercosur_&_Co:_Konzernabkommen_stoppen!":{"startYear":2019,"endYear":null,"ongoing":true,"temporalStatus":"Ongoing / recurrent"},"Project::Kettensäge_stoppen!":{"startYear":2026,"endYear":null,"ongoing":true,"temporalStatus":"Ongoing"},"Project::Wettrüsten_stoppen!":{"startYear":2025,"endYear":null,"ongoing":true,"temporalStatus":"Ongoing"},"Project::Ab_jetzt_gibt’s_Klimageld!":{"startYear":2024,"endYear":2024,"ongoing":false,"temporalStatus":"Completed / one-off action"},"Project::RohstoffEnergieHunger_stoppen!":{"startYear":2024,"endYear":null,"ongoing":true,"temporalStatus":"Ongoing"},"Project::Tax_the_Rich":{"startYear":2025,"endYear":null,"ongoing":true,"temporalStatus":"Ongoing"},"Project::Indigenous_Leadership_Exchange_Program":{"startYear":2020,"endYear":null,"ongoing":true,"temporalStatus":"Ongoing"},"Project::Blue_Community_Berlin":{"startYear":2018,"endYear":null,"ongoing":true,"temporalStatus":"Ongoing"},"Project::Initiative_BlackRock-Tribunal":{"startYear":2019,"endYear":null,"ongoing":true,"temporalStatus":"Ongoing / recurrent"},"Project::Systeme_umpflügen_–_reboot_food!":{"startYear":2024,"endYear":null,"ongoing":true,"temporalStatus":"Ongoing"},"Project::Europana_–_Dignidade_sem_Fronteiras":{"startYear":2019,"endYear":null,"ongoing":true,"temporalStatus":"Ongoing / multi-phase"},"Project::Journée_d’action_européenne_contre_l’impunité_des_multinationales":{"startYear":2010,"endYear":2010,"ongoing":false,"temporalStatus":"Completed"},"Project::Caso_Furukawa":{"startYear":2025,"endYear":2025,"ongoing":false,"temporalStatus":"Completed / current project phase"},"Project::Unify:_Bringing_the_EU_together_on_climate_action":{"startYear":2019,"endYear":2022,"ongoing":false,"temporalStatus":"Completed"},"Project::Comissão_Episcopal_para_Ecologia_Integral_e_Mineração_(CEEM)":{"startYear":2017,"endYear":null,"ongoing":true,"temporalStatus":"Ongoing"},"Project::Denunciation_of_human-rights_violations_to_EU_Delegation":{"startYear":2024,"endYear":2024,"ongoing":false,"temporalStatus":"Completed"},"Project::Acogidas_Feministas_–_Transformamos_Juntas":{"startYear":2022,"endYear":null,"ongoing":true,"temporalStatus":"Ongoing / recurrent"},"Project::fern:welt:nah":{"startYear":2014,"endYear":null,"ongoing":true,"temporalStatus":"Ongoing / recurrent"},"Project::EU-LAC_WIN":{"startYear":2021,"endYear":null,"ongoing":true,"temporalStatus":"Ongoing"},"Project::Opposition_to_EU-Mercosur_Trade_Agreement":{"startYear":2025,"endYear":2025,"ongoing":false,"temporalStatus":"Completed"},"Project::EU_Carbon_Removal_Policy_Briefing":{"startYear":2025,"endYear":2025,"ongoing":false,"temporalStatus":"Completed"},"Project::Pesticides_and_Right_to_Food_Research":{"startYear":2020,"endYear":null,"ongoing":true,"temporalStatus":"Completed"},"Project::Real_Zero_Europe_Campaign":{"startYear":2022,"endYear":null,"ongoing":true,"temporalStatus":"Ongoing"},"Project::Fossil_Free_Europe_Campaign":{"startYear":2017,"endYear":null,"ongoing":true,"temporalStatus":"Ongoing"},"Project::VOICES":{"startYear":2021,"endYear":null,"ongoing":true,"temporalStatus":"Ongoing"},"Project::Beyond_Bioenergy":{"startYear":2025,"endYear":null,"ongoing":true,"temporalStatus":"Completed"},"Project::Research_on_EU-Mercosur_Agricultural_Trade_Impacts":{"startYear":2019,"endYear":2019,"ongoing":false,"temporalStatus":"Completed"},"Project::Stop_Pesticides":{"startYear":2021,"endYear":null,"ongoing":true,"temporalStatus":"Ongoing"},"Project::Debt_Justice_/_Debt_and_Climate_Campaign":{"startYear":2020,"endYear":null,"ongoing":true,"temporalStatus":"Ongoing / annual"},"Project::Municipalities_against_TTIP,_CETA_and_TiSA":{"startYear":2014,"endYear":2016,"ongoing":false,"temporalStatus":"Completed / campaign phase"},"Project::La_Petite_Foire_Paysanne":{"startYear":2011,"endYear":null,"ongoing":true,"temporalStatus":"Ongoing / annual"},"Project::EU_mercosur_stoppen":{"startYear":2025,"endYear":null,"ongoing":true,"temporalStatus":"Ongoing"},"Project::Alerta_de_Comercio_Tóxico":{"startYear":2020,"endYear":null,"ongoing":true,"temporalStatus":"Completed"},"Project::Aktiv_werden_gegen_EU-Mercosur":{"startYear":2025,"endYear":null,"ongoing":true,"temporalStatus":"Ongoing"},"Project::OIDHACO_warns:_the_European_list_of_“safe_countries_of_origin”_threatens_the_right_to_asylum_and_human_rights":{"startYear":2026,"endYear":2026,"ongoing":false,"temporalStatus":"Completed"},"Project::Luces_y_Sombras_del_TLC-UE":{"startYear":2025,"endYear":2025,"ongoing":false,"temporalStatus":"Completed"},"Project::Tell_the_EU_to_stand_firm_against_deforestation!":{"startYear":2024,"endYear":null,"ongoing":true,"temporalStatus":"Ongoing"},"Project::Monitoring_the_EU-Mercosur_Association_Agreement":{"startYear":2016,"endYear":2016,"ongoing":false,"temporalStatus":"Completed / monitoring event window"},"Project::Carta_Abierta_a_los_gobiernos_y_parlamentos_de_los_países_del_MERCOSUR_y_el_PARLASUR":{"startYear":2023,"endYear":2023,"ongoing":false,"temporalStatus":"Completed"},"Project::Just-Fashion_Werkstatt":{"startYear":2026,"endYear":null,"ongoing":true,"temporalStatus":"Ongoing / scheduled"},"Project::International_Solidarity":{"startYear":2020,"endYear":null,"ongoing":true,"temporalStatus":"Ongoing"},"Project::Programa_Municipal_de_Acogida_Temporal_de_Periodistas_(PAT-P)":{"startYear":2017,"endYear":null,"ongoing":true,"temporalStatus":"Ongoing"},"Project::No_al_acuerdo_de_libre_comercio_Unión_Europea-_Mercosur":{"startYear":2024,"endYear":null,"ongoing":true,"temporalStatus":"Ongoing"},"Project::Hidden_Homeworkers":{"startYear":2019,"endYear":2023,"ongoing":false,"temporalStatus":"Completed"},"Project::Glyphosat_–_Das_meistverkaufte_Pflanzengift_der_Welt":{"startYear":2015,"endYear":null,"ongoing":true,"temporalStatus":"Ongoing"},"Project::#Bestof49":{"startYear":2025,"endYear":null,"ongoing":true,"temporalStatus":"Ongoing"},"Project::European_HomeParliaments":{"startYear":2018,"endYear":null,"ongoing":true,"temporalStatus":"Ongoing / recurring"},"Project::Pride_of_Europe":{"startYear":2019,"endYear":null,"ongoing":true,"temporalStatus":"Ongoing"}};
+/* VALEUS_PROJECT_TIME_REGISTRY_END */
+            const minDataYear = 1997;
+                        const maxDataYear = 2026;
+                        let currentStartYear = 1997;
+                        let currentEndYear = 2026;
+          let running = true;
+
+          let activeTypes = new Set([
+            "Country", "Project", "Addressee", "Organization", "Action Domain", "Kind of Action"
+          ]);
+
+          let hoveredNode = null;
+          let pinnedNode = null;
+          let panelNode = null;
+
+          const btn = document.getElementById("toggle");
+          const noBtn = document.getElementById("noverlap");
+
+           const nodeInfo = document.getElementById("nodeInfo");
+
+           function asArray(value) {
+             if (Array.isArray(value)) return value.filter(v => v !== null && String(v).trim() !== "");
+             if (value === null || value === undefined || String(value).trim() === "") return [];
+             return [value];
+           }
+
+           function escapeHtml(value) {
+             return String(value)
+               .replaceAll("&", "&amp;")
+               .replaceAll("<", "&lt;")
+               .replaceAll(">", "&gt;")
+               .replaceAll('"', "&quot;")
+               .replaceAll("'", "&#039;");
+           }
+
+           function infoRow(label, value) {
+             const values = asArray(value);
+             if (!values.length) return "";
+             return `
+               <div class="info-row">
+                 <div class="info-label">${escapeHtml(label)}</div>
+                 <div class="info-value">${values.map(escapeHtml).join("<br>")}</div>
+               </div>`;
+           }
+
+           function safeWebsiteHref(value) {
+             let raw = String(value || "").trim();
+             if (!raw) return "";
+             if (!/^https?:\/\//i.test(raw)) raw = `https://${raw}`;
+             try {
+               const url = new URL(raw);
+               return (url.protocol === "http:" || url.protocol === "https:") ? url.href : "";
+             } catch (_) {
+               return "";
+             }
+           }
+
+           function infoOrganizationDescription(d) {
+             const parts = [];
+             if (String(d.organizationType || "").trim()) parts.push(`<div class="org-description-line"><strong>Type:</strong> ${escapeHtml(d.organizationType)}</div>`);
+             if (String(d.organizationHeadquarters || "").trim()) parts.push(`<div class="org-description-line"><strong>Headquarters:</strong> ${escapeHtml(d.organizationHeadquarters)}</div>`);
+             const website = String(d.organizationWebsite || "").trim();
+             if (website) {
+               const href = safeWebsiteHref(website);
+               if (href) parts.push(`<div class="org-description-line"><strong>Website:</strong> <a href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">${escapeHtml(website)}</a></div>`);
+               else parts.push(`<div class="org-description-line"><strong>Website:</strong> ${escapeHtml(website)}</div>`);
+             }
+             const freeText = String(d.description || "").trim();
+             if (freeText) parts.push(`<div class="org-description-line org-free-description">${escapeHtml(freeText)}</div>`);
+             if (!parts.length) return "";
+             return `<div class="info-row"><div class="info-label">Description</div><div class="info-value">${parts.join("")}</div></div>`;
+           }
+
+           function websiteForListItem(metaType, label) {
+             let found = "";
+             const wanted = String(label || "").trim();
+             if (!wanted) return "";
+
+             g.forEachNode((node, attrs) => {
+               if (found || attrs.metaType !== metaType) return;
+               const visible = metaType === "Project"
+                 ? String(attrs.fullTitle || attrs.label || "").trim()
+                 : String(attrs.label || "").trim();
+               if (visible !== wanted) return;
+               found = metaType === "Project"
+                 ? String(attrs.projectWebsite || "").trim()
+                 : String(attrs.organizationWebsite || "").trim();
+             });
+
+             return found;
+           }
+
+           function linkedListItemHtml(value, metaType) {
+             const label = String(value || "").trim();
+             if (!label) return "";
+
+             const period =
+               metaType === "Project" &&
+               typeof projectPeriodForLabel === "function"
+                 ? String(projectPeriodForLabel(label) || "").trim()
+                 : "";
+
+             const periodHtml = period
+               ? ` <span class="org-project-period-inline">(${escapeHtml(period)})</span>`
+               : "";
+
+             const displayHtml =
+               `<span class="info-list-entry-text">${escapeHtml(label)}${periodHtml}</span>`;
+
+             const website = websiteForListItem(metaType, label);
+             const href = safeWebsiteHref(website);
+             if (!href) return displayHtml;
+
+             const typeName =
+               metaType === "Project" ? "project" : "organization";
+
+             return `<a class="info-list-entry-link" href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer" title="Open ${typeName} website" aria-label="Open ${typeName} website">${displayHtml}<span class="info-list-link" aria-hidden="true">↗</span></a>`;
+           }
+
+           function infoLinkedRow(label, value, metaType) {
+             const values = asArray(value);
+             if (!values.length) return "";
+             return `
+               <div class="info-row">
+                 <div class="info-label">${escapeHtml(label)}</div>
+                 <div class="info-value">${values.map(v => linkedListItemHtml(v, metaType)).join("<br>")}</div>
+               </div>`;
+           }
+           function canonicalPanelLabel(value) {
+             return String(value || "").trim().toLocaleLowerCase();
+           }
+
+           function projectNodeForPanelLabel(projectLabel) {
+             const wanted = String(projectLabel || "").trim();
+             if (!wanted) return null;
+
+             let exact = null;
+             let fallback = null;
+
+             g.forEachNode((node, attrs) => {
+               if (attrs.metaType !== "Project") return;
+
+               const fullTitle = String(attrs.fullTitle || "").trim();
+               const label = String(attrs.label || "").trim();
+
+               if (!exact && fullTitle === wanted) exact = node;
+               if (!fallback && label === wanted) fallback = node;
+             });
+
+             return exact || fallback;
+           }
+
+           function organizationsForProjectLabel(projectLabel) {
+             const projectNode = projectNodeForPanelLabel(projectLabel);
+             if (!projectNode) return [];
+
+             const attrs = g.getNodeAttributes(projectNode);
+             const fromMetadata = asArray(attrs.organizations);
+
+             const fromEdges = g.neighbors(projectNode)
+               .filter(node => g.getNodeAttribute(node, "metaType") === "Organization")
+               .map(node => g.getNodeAttribute(node, "label"));
+
+             return Array.from(
+               new Set(
+                 [...fromMetadata, ...fromEdges]
+                   .map(value => String(value || "").trim())
+                   .filter(Boolean)
+               )
+             );
+           }
+
+           function infoOrganizationsWithProjects(organizations, linkedProjects) {
+             const orgs = asArray(organizations)
+               .map(value => String(value || "").trim())
+               .filter(Boolean);
+
+             const projects = asArray(linkedProjects)
+               .map(value => String(value || "").trim())
+               .filter(Boolean);
+
+             if (!orgs.length && !projects.length) return "";
+
+             const grouped = new Map();
+             orgs.forEach(org => grouped.set(org, []));
+
+             const unmatched = [];
+
+             projects.forEach(project => {
+               const owners = organizationsForProjectLabel(project);
+               let matchingOwners = owners.filter(owner =>
+                 orgs.some(org =>
+                   canonicalPanelLabel(org) === canonicalPanelLabel(owner)
+                 )
+               );
+
+               // If a selected node has only one relevant organisation,
+               // assign an otherwise unresolved legacy project to it.
+               if (!matchingOwners.length && orgs.length === 1) {
+                 matchingOwners = [orgs[0]];
+               }
+
+               if (!matchingOwners.length) {
+                 unmatched.push(project);
+                 return;
+               }
+
+               matchingOwners.forEach(owner => {
+                 const canonicalOwner = orgs.find(org =>
+                   canonicalPanelLabel(org) === canonicalPanelLabel(owner)
+                 ) || owner;
+
+                 if (!grouped.has(canonicalOwner)) grouped.set(canonicalOwner, []);
+                 const values = grouped.get(canonicalOwner);
+                 if (!values.includes(project)) values.push(project);
+               });
+             });
+
+             const sortedOrgs = Array.from(grouped.keys()).sort((a, b) =>
+               a.localeCompare(b, undefined, { sensitivity: "base" })
+             );
+
+             let body = sortedOrgs.map(org => {
+               const orgProjects = (grouped.get(org) || []).slice().sort((a, b) =>
+                 a.localeCompare(b, undefined, { sensitivity: "base" })
+               );
+
+               const projectsHtml = orgProjects.length
+                 ? `<div class="org-project-projects">${
+                     orgProjects.map(project =>
+                       `<div class="org-project-project">${linkedListItemHtml(project, "Project")}</div>`
+                     ).join("")
+                   }</div>`
+                 : "";
+
+               return `
+                 <div class="org-project-group">
+                   <div class="org-project-org">${linkedListItemHtml(org, "Organization")}</div>
+                   ${projectsHtml}
+                 </div>`;
+             }).join("");
+
+             // This fallback should normally remain empty because project
+             // ownership is encoded in both metadata and graph edges.
+             if (unmatched.length) {
+               const remaining = unmatched.slice().sort((a, b) =>
+                 a.localeCompare(b, undefined, { sensitivity: "base" })
+               );
+
+               body += `
+                 <div class="org-project-projects">
+                   ${remaining.map(project =>
+                     `<div class="org-project-project">${linkedListItemHtml(project, "Project")}</div>`
+                   ).join("")}
+                 </div>`;
+             }
+
+             return `
+               <div class="info-row">
+                 <div class="info-label">Organizations</div>
+                 <div class="info-value org-project-list">${body}</div>
+               </div>`;
+           }
+           function formatProjectPeriodRecord(record) {
+             if (!record) return "";
+
+             const start =
+               record.startYear === null ||
+               record.startYear === undefined ||
+               record.startYear === ""
+                 ? NaN
+                 : Number(record.startYear);
+
+             const end =
+               record.endYear === null ||
+               record.endYear === undefined ||
+               record.endYear === ""
+                 ? NaN
+                 : Number(record.endYear);
+
+             const status = String(record.temporalStatus || "").trim();
+             const statusLower = status.toLowerCase();
+
+             const ongoing =
+               record.ongoing === true ||
+               record.ongoing === 1 ||
+               String(record.ongoing || "").toLowerCase() === "true" ||
+               statusLower.startsWith("ongoing");
+
+             if (Number.isFinite(start) && ongoing) {
+               return `${start}–ongoing`;
+             }
+
+             if (Number.isFinite(start) && Number.isFinite(end)) {
+               return start === end ? String(start) : `${start}–${end}`;
+             }
+
+             if (Number.isFinite(start)) {
+               if (statusLower.includes("end not confirmed")) {
+                 return `${start}–? (end not confirmed)`;
+               }
+               return `From ${start}`;
+             }
+
+             if (Number.isFinite(end)) {
+               return `Until ${end}`;
+             }
+
+             return "";
+           }
+
+           function projectNodeForPeriodLabel(projectLabel) {
+             const wanted = String(projectLabel || "").trim();
+             if (!wanted) return null;
+
+             let exact = null;
+             let fallback = null;
+
+             g.forEachNode((node, attrs) => {
+               if (attrs.metaType !== "Project") return;
+
+               const fullTitle = String(attrs.fullTitle || "").trim();
+               const label = String(attrs.label || "").trim();
+
+               if (!exact && fullTitle === wanted) exact = node;
+               if (!fallback && label === wanted) fallback = node;
+             });
+
+             return exact || fallback;
+           }
+
+           function projectPeriodForNode(nodeId) {
+             const record = PROJECT_TIME[nodeId] || null;
+             return formatProjectPeriodRecord(record);
+           }
+
+           function projectPeriodForLabel(projectLabel) {
+             const nodeId = projectNodeForPeriodLabel(projectLabel);
+             return nodeId ? projectPeriodForNode(nodeId) : "";
+           }
+
+           function infoProjectTemporalType(value) {
+             const temporalType = String(value || "").trim();
+             if (!temporalType) return "";
+             return `
+               <div class="info-row">
+                 <div class="info-label">Project/Action temporal type</div>
+                 <div class="info-value">${escapeHtml(temporalType)}</div>
+               </div>`;
+           }
+
+           function infoProjectPeriod(nodeId) {
+             const period = projectPeriodForNode(nodeId);
+             if (!period) return "";
+             return `
+               <div class="info-row">
+                 <div class="info-label">Time of operation</div>
+                 <div class="info-value">${escapeHtml(period)}</div>
+               </div>`;
+           }
+
+           function organizationProjectLineHtml(project) {
+             const label = String(project || "").trim();
+             if (!label) return "";
+             return linkedListItemHtml(label, "Project");
+           }
+
+           function infoOrganizationProjects(linkedProjects) {
+             const projects = asArray(linkedProjects)
+               .map(value => String(value || "").trim())
+               .filter(Boolean);
+
+             if (!projects.length) return "";
+
+             const body = projects
+               .slice()
+               .sort((a, b) =>
+                 a.localeCompare(b, undefined, { sensitivity: "base" })
+               )
+               .map(project => organizationProjectLineHtml(project))
+               .join("<br>");
+
+             return `
+               <div class="info-row">
+                 <div class="info-label">Linked projects</div>
+                 <div class="info-value">${body}</div>
+               </div>`;
+           }
+           function infoProjectDescription(value) {
+             const values = asArray(value);
+             if (!values.length) return "";
+             return `
+               <div class="info-row">
+                 <div class="info-label">Description</div>
+                 <div class="info-value project-description-value">${values.map(escapeHtml).join("<br>")}</div>
+               </div>`;
+           }
+           function infoCountries(label, value, groups) {
+             const values = asArray(value);
+             const groupValues = asArray(groups);
+             if (!values.length) return "";
+
+             let body = "";
+             let previousGroup = null;
+
+             values.forEach((country, i) => {
+               const group = groupValues[i] || "Rest of the World";
+               if (previousGroup !== null && group !== previousGroup) {
+                 body += `<div class="country-group-gap"></div>`;
+               }
+               body += `<div>${escapeHtml(country)}</div>`;
+               previousGroup = group;
+             });
+
+             return `
+               <div class="info-row">
+                 <div class="info-label">${escapeHtml(label)}</div>
+                 <div class="info-value country-list">${body}</div>
+               </div>`;
+           }
+
+           function showNodeInfo(nodeId) {
+             const d = g.getNodeAttributes(nodeId);
+             const supportedTypes = new Set(["Project", "Organization", "Country", "Addressee", "Action Domain", "Kind of Action"]);
+             if (!supportedTypes.has(d.metaType)) {
+               nodeInfo.classList.remove("visible");
+               nodeInfo.innerHTML = "";
+               return;
+             }
+
+             const title = d.metaType === "Project"
+               ? (d.fullTitle || d.label || "")
+               : (d.label || "");
+
+             let rows = "";
+
+             if (d.metaType === "Project") {
+               rows =
+                 infoProjectDescription(d.description) +
+                 infoProjectTemporalType(d.temporalType) +
+                 infoProjectPeriod(nodeId) +
+                 infoLinkedRow("Organization", d.organizations, "Organization") +
+                 infoCountries("Countries", d.countries, d.countryGroups) +
+                 infoRow("Action domain", d.actionDomains) +
+                 infoRow("Kind of action", d.kindsOfAction) +
+                 infoRow("Addressees", d.addressees);
+             }
+
+             if (d.metaType === "Organization") {
+               rows =
+                 infoOrganizationDescription(d) +
+                 infoOrganizationProjects(d.linkedProjects) +
+                 infoCountries("Countries of engagement", d.countries, d.countryGroups) +
+                 infoRow("Action domains", d.actionDomains) +
+                 infoRow("Kinds of action", d.kindsOfAction) +
+                 infoRow("Addressees", d.addressees);
+             }
+
+             if (d.metaType === "Country") {
+               rows =
+                 infoOrganizationsWithProjects(d.organizations, d.linkedProjects) +
+                 infoRow("Action domains", d.actionDomains) +
+                 infoRow("Kinds of action", d.kindsOfAction) +
+                 infoRow("Addressees", d.addressees);
+             }
+
+             if (d.metaType === "Addressee") {
+               rows =
+                 infoOrganizationsWithProjects(d.organizations, d.linkedProjects) +
+                 infoCountries("Countries", d.countries, d.countryGroups) +
+                 infoRow("Action domains", d.actionDomains) +
+                 infoRow("Kinds of action", d.kindsOfAction);
+             }
+
+             if (d.metaType === "Action Domain") {
+               rows =
+                 infoOrganizationsWithProjects(d.organizations, d.linkedProjects) +
+                 infoCountries("Countries", d.countries, d.countryGroups) +
+                 infoRow("Kinds of action", d.kindsOfAction) +
+                 infoRow("Addressees", d.addressees);
+             }
+
+             if (d.metaType === "Kind of Action") {
+               rows =
+                 infoOrganizationsWithProjects(d.organizations, d.linkedProjects) +
+                 infoCountries("Countries", d.countries, d.countryGroups) +
+                 infoRow("Action domains", d.actionDomains) +
+                 infoRow("Addressees", d.addressees);
+             }
+
+             const ownProjectWebsite = d.metaType === "Project"
+               ? String(d.projectWebsite || "").trim()
+               : "";
+             const ownProjectHref = safeWebsiteHref(ownProjectWebsite);
+             const ownProjectLink = ownProjectHref
+               ? `<a class="info-title-link" href="${escapeHtml(ownProjectHref)}" target="_blank" rel="noopener noreferrer" title="Open project website" aria-label="Open project website">↗</a>`
+               : "";
+
+             nodeInfo.innerHTML =
+               `<div class="info-type">${escapeHtml(d.metaType)}</div>` +
+               `<div class="info-title">${escapeHtml(title)}${ownProjectLink}</div>` +
+               rows;
+
+             panelNode = nodeId;
+             nodeInfo.classList.add("visible");
+           }
+
+           function hideNodeInfo() {
+             panelNode = null;
+             nodeInfo.classList.remove("visible");
+             nodeInfo.innerHTML = "";
+           }
+         
+
+          // Year + emergence
+                              function projectVisibleByYear(nodeId) {
+            const t = g.getNodeAttribute(nodeId, "metaType");
+            if (t !== "Project") return false;
+
+            const fullRangeSelected =
+              currentStartYear === minDataYear && currentEndYear === maxDataYear;
+
+            // PROJECT_TIME is generated directly from the final R graph.
+            // This avoids dependence on temporal attributes copied by older
+            // HTML/Graphology loader versions.
+            const record = PROJECT_TIME[nodeId] || null;
+
+            // The default complete interval is the complete retained network.
+            if (fullRangeSelected) return true;
+
+            // A narrowed interval only contains projects with a reliable
+            // temporal record and start year.
+            if (!record) return false;
+
+            const sY =
+              record.startYear === null ||
+              record.startYear === undefined ||
+              record.startYear === ""
+                ? NaN
+                : Number(record.startYear);
+
+            const eY =
+              record.endYear === null ||
+              record.endYear === undefined ||
+              record.endYear === ""
+                ? NaN
+                : Number(record.endYear);
+
+            const temporalStatus = String(
+              record.temporalStatus || ""
+            ).trim().toLowerCase();
+
+            const isOngoing =
+              record.ongoing === true ||
+              record.ongoing === 1 ||
+              String(record.ongoing || "").toLowerCase() === "true" ||
+              temporalStatus.startsWith("ongoing");
+
+            if (!Number.isFinite(sY)) return false;
+
+            const effectiveEnd = isOngoing
+              ? maxDataYear
+              : (Number.isFinite(eY) ? eY : sY);
+
+            return (
+              sY <= currentEndYear &&
+              currentStartYear <= effectiveEnd
+            );
+          }
+function hasActiveProjectNeighbor(nodeId) {
+            const neighbors = g.neighbors(nodeId);
+            for (const nb of neighbors) {
+              if (projectVisibleByYear(nb)) return true;
+            }
+            return false;
+          }
+
+          // --- NEW: nudge neighbors around each active project to reduce stacking
+          function nudgeProjectNeighborhoods() {
+            const push = 0.7;     // radial push strength
+            const tangK = 0.25;   // tangential spread
+
+            g.forEachNode((p) => {
+              if (g.getNodeAttribute(p, "metaType") !== "Project") return;
+              if (!projectVisibleByYear(p)) return;
+
+              const px = g.getNodeAttribute(p, "x");
+              const py = g.getNodeAttribute(p, "y");
+
+              const neighbors = g.neighbors(p).filter(n => g.getNodeAttribute(n, "metaType") !== "Project");
+              if (neighbors.length < 2) return;
+
+              const withAngle = neighbors.map(n => {
+                const x = g.getNodeAttribute(n, "x");
+                const y = g.getNodeAttribute(n, "y");
+                return { n, a: Math.atan2(y - py, x - px) };
+              }).sort((a, b) => a.a - b.a);
+
+              withAngle.forEach((obj, i) => {
+                const n = obj.n;
+                const x = g.getNodeAttribute(n, "x");
+                const y = g.getNodeAttribute(n, "y");
+
+                const dx = x - px;
+                const dy = y - py;
+                const norm = Math.sqrt(dx * dx + dy * dy) || 1;
+
+                const rx = dx / norm;
+                const ry = dy / norm;
+
+                // Tangential unit vector
+                const tx = -ry;
+                const ty = rx;
+
+                // Alternate radial in/out; add small tangential spread
+                const radial = ((i % 2 === 0) ? 1 : -1) * push;
+                const tang = ((i % 5) - 2) * (push * tangK);
+
+                g.setNodeAttribute(n, "x", x + rx * radial + tx * tang);
+                g.setNodeAttribute(n, "y", y + ry * radial + ty * tang);
+              });
+            });
+          }
+
+          // Reducers
+          renderer.setSetting("nodeReducer", (node, data) => {
+            const res = { ...data };
+
+            if (!activeTypes.has(data.metaType)) {
+              res.hidden = true;
+              return res;
+            }
+
+            if (data.metaType === "Project") {
+              if (!projectVisibleByYear(node)) {
+                res.hidden = true;
+                return res;
+              }
+            } else {
+              if (!hasActiveProjectNeighbor(node)) {
+                res.hidden = true;
+                return res;
+              }
+            }
+
+            res.label = "";
+            const isFocus = (
+              node === hoveredNode ||
+              node === pinnedNode ||
+              node === panelNode
+            );
+            if (isFocus) {
+              res.label = truncateLabel(data.label, 40);
+              res.size = data.size * 1.25;
+              res.forceLabel = true;
+              res.highlighted = true;
+              res.zIndex = 10;
+            } else if (data.size >= 10) {
+              res.label = truncateLabel(data.label, 20);
+            }
+
+            return res;
+          });
+
+          renderer.setSetting("edgeReducer", (edge, data) => {
+            const res = { ...data };
+            res.color = "#bdbdbd";
+
+            const src = g.source(edge);
+            const tgt = g.target(edge);
+
+            const srcType = g.getNodeAttribute(src, "metaType");
+            const tgtType = g.getNodeAttribute(tgt, "metaType");
+
+            if (!activeTypes.has(srcType) || !activeTypes.has(tgtType)) {
+              res.hidden = true;
+              return res;
+            }
+
+            const srcVisible = (srcType === "Project") ? projectVisibleByYear(src) : hasActiveProjectNeighbor(src);
+            const tgtVisible = (tgtType === "Project") ? projectVisibleByYear(tgt) : hasActiveProjectNeighbor(tgt);
+
+            if (!srcVisible || !tgtVisible) {
+              res.hidden = true;
+              return res;
+            }
+
+            return res;
+          });
+
+          // Hover/click labels + information panel
+          renderer.on("enterNode", ({ node }) => {
+            hoveredNode = node;
+            showNodeInfo(node);
+            renderer.refresh();
+          });
+
+          renderer.on("leaveNode", () => {
+            hoveredNode = null;
+            if (pinnedNode) showNodeInfo(pinnedNode);
+            else hideNodeInfo();
+            renderer.refresh();
+          });
+
+          renderer.on("clickNode", ({ node }) => {
+            pinnedNode = (pinnedNode === node) ? null : node;
+            if (pinnedNode) showNodeInfo(pinnedNode);
+            else if (hoveredNode) showNodeInfo(hoveredNode);
+            else hideNodeInfo();
+            renderer.refresh();
+          });
+
+          renderer.on("clickStage", () => {
+            pinnedNode = null;
+            hideNodeInfo();
+            renderer.refresh();
+          });
+
+          // Filters
+          document.querySelectorAll("#filters input").forEach(cb => {
+            cb.addEventListener("change", () => {
+              if (cb.checked) activeTypes.add(cb.value);
+              else activeTypes.delete(cb.value);
+              renderer.refresh();
+            });
+          });
+
+                    // Year-range slider
+          const yearStartSlider = document.getElementById("yearStartSlider");
+          const yearEndSlider = document.getElementById("yearEndSlider");
+          const yearRangeValue = document.getElementById("yearRangeValue");
+          const yearRangeSliderWrap = document.getElementById("yearRangeSliderWrap");
+
+          function updateYearRange(changedHandle = "initial") {
+            let start = parseInt(yearStartSlider.value, 10);
+            let end = parseInt(yearEndSlider.value, 10);
+
+            if (start > end) {
+              if (changedHandle === "start") {
+                end = start;
+                yearEndSlider.value = String(end);
+              } else {
+                start = end;
+                yearStartSlider.value = String(start);
+              }
+            }
+
+            currentStartYear = start;
+            currentEndYear = end;
+
+            const rangeLabel =
+              start === end ? String(start) : `${start}–${end}`;
+            yearRangeValue.textContent =
+              end === maxDataYear ? `${rangeLabel} · incl. ongoing` : rangeLabel;
+
+            const denominator = Math.max(1, maxDataYear - minDataYear);
+            const startPct = ((start - minDataYear) / denominator) * 100;
+            const endPct = ((end - minDataYear) / denominator) * 100;
+
+            yearRangeSliderWrap.style.setProperty("--range-start", `${startPct}%`);
+            yearRangeSliderWrap.style.setProperty("--range-end", `${endPct}%`);
+
+            // When both handles coincide, keep the most recently manipulated
+            // one on top. Moving either handle can also push the other handle,
+            // so a one-year selection can be expanded again in either direction.
+            if (start === end) {
+              if (changedHandle === "start") {
+                yearStartSlider.style.zIndex = "5";
+                yearEndSlider.style.zIndex = "4";
+              } else {
+                yearEndSlider.style.zIndex = "5";
+                yearStartSlider.style.zIndex = "4";
+              }
+            } else {
+              yearStartSlider.style.zIndex = "4";
+              yearEndSlider.style.zIndex = "4";
+            }
+
+            // Prevent immediate stacking when projects enter/leave the view.
+            nudgeProjectNeighborhoods();
+
+            const registeredProjectCount = Object.keys(PROJECT_TIME).length;
+            let visibleProjectCount = 0;
+            g.forEachNode((node, attrs) => {
+              if (attrs.metaType === "Project" && projectVisibleByYear(node)) {
+                visibleProjectCount += 1;
+              }
+            });
+            console.info(
+              `[ValEUs time filter] ${start}–${end}: ${visibleProjectCount}/${registeredProjectCount} project(s) visible`
+            );
+
+            renderer.refresh();
+          }
+
+          yearStartSlider.addEventListener("input", () => updateYearRange("start"));
+          yearEndSlider.addEventListener("input", () => updateYearRange("end"));
+          updateYearRange("initial");
+
+
+          // Layout (movement + spacing)
+          const fa2Settings = {
+            linLogMode: true,
+            outboundAttractionDistribution: true,
+            adjustSizes: true,
+            strongGravityMode: false,
+            gravity: 0.03,
+            scalingRatio: 60,
+            slowDown: 1.0
+          };
+
+          const ITERATIONS_PER_FRAME = 2;
+
+          function loop() {
+            if (running) {
+              forceAtlas2.assign(g, { iterations: ITERATIONS_PER_FRAME, settings: fa2Settings });
+              renderer.refresh();
+            }
+            requestAnimationFrame(loop);
+          }
+          requestAnimationFrame(loop);
+
+          // Option A: stronger periodic noverlap (prevents project-neighbor stacking)
+          setInterval(() => {
+            if (running) {
+              noverlap.assign(g, { margin: 10, ratio: 1.10, speed: 1 });
+              renderer.refresh();
+            }
+          }, 900);
+
+          // Pause/Resume
+          btn.onclick = () => {
+            running = !running;
+            btn.textContent = running ? "⏸ Pause" : "▶ Resume";
+          };
+
+          // Space button: pause + nudge + strong de-overlap
+          noBtn.onclick = () => {
+            running = false;
+            btn.textContent = "▶ Resume";
+
+            nudgeProjectNeighborhoods();
+            noverlap.assign(g, { margin: 18, ratio: 1.35, speed: 4 });
+
+            renderer.refresh();
+          };
+        });
+    });
+  </script>
+<script>
+/* VALEUS_EXPLORE_VIEWPORT_FIT_START */
+(function(){
+  function fitExplorePanelToViewport(){
+    const panel = document.getElementById("explorePanel");
+    if (!panel) return;
+
+    const rect = panel.getBoundingClientRect();
+    const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
+    const bottomGap = 12;
+    const available = Math.max(0, Math.floor(viewportHeight - rect.top - bottomGap));
+
+    panel.style.maxHeight = `${available}px`;
+    panel.style.overflowY = "auto";
+  }
+
+  window.addEventListener("resize", fitExplorePanelToViewport, { passive: true });
+  window.addEventListener("load", fitExplorePanelToViewport);
+  requestAnimationFrame(fitExplorePanelToViewport);
+  setTimeout(fitExplorePanelToViewport, 100);
+})();
+/* VALEUS_EXPLORE_VIEWPORT_FIT_END */
+</script>
+</body>
+</html>
