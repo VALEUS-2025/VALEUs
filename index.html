@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ValEUs – Civil Society EU Engagement Visualisations</title>
+  <link rel="icon" href="data:,">
+  <style>
+    :root{
+      --valeus-blue: #5555FF;
+      --valeus-green: #7CCF19;
+      --valeus-yellow: #FFDF00;
+      --valeus-red: #FF5955;
+      --valeus-black: #000000;
+      --valeus-white: #FFFFFF;
+      --bg: #FFFFFF;
+      --surface: #FFFFFF;
+      --text: #111111;
+      --muted: #4b5563;
+      --border: rgba(0,0,0,0.10);
+      --radius: 14px;
+      --shadow: 0 8px 24px rgba(0,0,0,0.08);
+      --maxw: 1040px;
+    }
+
+    html, body { height: 100%; margin: 0; }
+    body {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      margin: 0;
+      padding: 0;
+      font-family: "Segoe UI", system-ui, -apple-system, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.45;
+    }
+
+    .wrap {
+      max-width: var(--maxw);
+      margin: 0 auto;
+      padding: 28px 18px 40px;
+    }
+
+    .site-header {
+      background-color: #ffffff;
+      border-bottom: 1px solid #e5e5e5;
+    }
+
+    .site-header-inner {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 20px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 24px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .brand-logo {
+      height: 95px;
+      width: auto;
+      display: block;
+    }
+
+    .brand-text h1 {
+      margin: 0 0 4px;
+      font-size: 1.3rem;
+    }
+
+    .brand-text p {
+      margin: 0;
+      font-size: 1rem;
+      color: #444;
+    }
+
+    .header-cta {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 10px 22px;
+      border-radius: 999px;
+      border: 1px solid #ddd;
+      background: #ffffff;
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 0.95rem;
+      color: #5555FF;
+    }
+
+    .header-cta:hover { border-color: #5555FF; }
+
+    @media (max-width: 720px) {
+      .site-header-inner {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+      .header-cta {
+        align-self: stretch;
+        justify-content: center;
+      }
+    }
+
+    .hero { padding: 26px 0 10px; }
+
+    .hero .lede {
+      margin: 0 0 1rem;
+      color: var(--muted);
+      max-width: 100%;
+      font-size: 15.5px;
+      text-align: justify;
+      hyphens: auto;
+    }
+
+    .aims-list {
+      margin: 0 0 1rem 2.4rem;
+      padding-left: 1.2rem;
+      color: var(--muted);
+      font-size: 15.5px;
+      line-height: 1.45;
+      text-align: justify;
+      max-width: 100%;
+    }
+
+    .aims-list li {
+      margin-bottom: 0.35rem;
+      padding-left: 0.3rem;
+    }
+
+    .aims-list li:last-child {
+      margin-bottom: 0;
+    }
+    
+    h1 {
+      margin: 0 0 10px;
+      font-size: 30px;
+      letter-spacing: 0.2px;
+      color: var(--valeus-black);
+    }
+
+    .lede {
+      margin: 0;
+      color: var(--muted);
+      max-width: 100%;
+      font-size: 15.5px;
+      text-align: justify;
+    }
+
+    .section { margin-top: 26px; }
+
+    .section h2 {
+      margin: 0 0 12px;
+      font-size: 18px;
+      color: var(--valeus-black);
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 16px;
+    }
+
+    .card {
+      background: var(--surface);
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      transition: transform 0.16s ease, box-shadow 0.16s ease;
+    }
+
+    .card:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 12px 30px rgba(0,0,0,0.10);
+    }
+
+    .thumb {
+      width: 100%;
+      height: 190px;
+      object-fit: cover;
+      display: block;
+      background: rgba(85,85,255,0.08);
+    }
+
+    .card-body {
+      padding: 14px 14px 16px;
+      text-align: justify;
+    }
+
+    .card-body p {
+      text-align: justify;
+      width: 100%;
+      hyphens: auto;
+    }
+
+    .tag {
+      display: inline-block;
+      font-size: 12px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      color: var(--valeus-black);
+      background: rgba(0,0,0,0.03);
+      margin-bottom: 10px;
+    }
+
+    .card h3 { margin: 0 0 8px; font-size: 16px; }
+    .card p  { margin: 0; color: var(--muted); font-size: 13.5px; }
+    .card a  { text-decoration: none; color: inherit; display: block; }
+
+    .btnrow {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 1px solid transparent;
+      font-weight: 600;
+      font-size: 14px;
+      cursor: pointer;
+      text-decoration: none;
+      user-select: none;
+    }
+
+    .btn-primary { background: var(--valeus-blue); color: var(--valeus-white); }
+    .btn-primary:hover { filter: brightness(0.96); }
+    .btn-ghost { background: transparent; border-color: var(--border); color: var(--valeus-black); }
+
+    main { flex: 1; }
+
+    footer {
+      margin-top: 34px;
+      padding: 18px 18px 18px;
+      border-top: 1px solid var(--border);
+      background-color: #f4f4f4;
+      color: #222;
+      font-size: 12.5px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .eu {display: flex; align-items: center; gap: 24px;}
+    .eu img {width: 270px; height: auto; display: block; }
+    .eu div {text-align: justify; line-height: 1.45;}
+
+    .more-toggle {
+      margin-top: 0.5rem;
+      border: none;
+      background: none;
+      padding: 0;
+      font: inherit;
+      color: #5555FF;
+      cursor: pointer;
+      text-decoration: underline;
+    }
+
+    .more-toggle:hover,
+    .more-toggle:focus { text-decoration: none; }
+
+    .card-more {
+      margin-top: 0.75rem;
+      padding-top: 0.75rem;
+      border-top: 1px solid #e2e6ea;
+      font-size: 0.95rem;
+      line-height: 1.5;
+      text-align: justify;
+    }
+
+    .card-more p {
+      text-align: justify;
+      width: 100%;
+      hyphens: auto;
+      margin: 0 0 0.65rem;
+    }
+
+    /* ── View counter ───────────────────────────────────────────── */
+    .view-counter {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 10px;
+      font-size: 12.5px;
+      color: #888;
+    }
+
+    .view-counter .eye { font-size: 14px; }
+
+    .hero-counter { margin-top: 14px; }
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+
+    <header class="site-header">
+      <div class="site-header-inner">
+        <div class="brand">
+          <img src="assets/img/values logo.png" alt="ValEUs logo" class="brand-logo" />
+          <div class="brand-text">
+            <h1>ValEUs Interactive Database</h1>
+            <p>Civil society initiatives counteracting contestations of EU values</p>
+          </div>
+        </div>
+        <a href="https://valeus.eu" target="_blank" rel="noopener" class="header-cta">
+          Go to ValEUs
+        </a>
+      </div>
+    </header>
+
+    <section class="hero">
+      <h1>Civil Society EU Engagement Visualisations</h1>
+
+      <p class="lede">
+        Welcome to the Interactive Database visualising civil society initiatives.
+      </p>
+
+      <p class="lede">
+        This interactive database visualises the different ways in which civil society organisations in Europe and beyond
+        counteract contestations to EU values, including freedom, democracy, equality, the rule of law, and human rights.
+        Connecting the networks of the several members of the ValEUs Network, the database displays a variety of civil
+        society actors and stakeholders that, through their initiatives, actively invest in peacebuilding, democratization,
+        fundamental and human rights, sustainability, and responses to growing inequalities related to migration, trade,
+        digitalization, conflict, and climate change in Europe. These initiatives address processes that negatively impact
+        EU values and provide alternatives in circumstances marked by growing inequality, growing authoritarianism, power
+        asymmetries, and human rights violations.
+      </p>
+
+      <p class="lede">
+        The interactive database aims to:
+      </p>
+
+      <ol class="aims-list">
+        <li>
+          inform researchers and policymakers about ongoing investments by civil society organisations to counteract
+          contestations of EU values, thereby providing essential insights for future policymaking processes, and
+        </li>
+        <li>
+          become a platform and database for civil society organisations working on similar projects intended to
+          counteract violations of EU values. In this way, it provides entry points for networking, cooperation, and
+          future project development.
+        </li>
+      </ol>
+
+      <p class="lede">
+        Within this database, you can explore a Flow Map, a Sankey Diagram, and an Interactive Network Diagram. The Flow
+        Map provides an overview of the geographical spread of civil society organisations, their action domains, and links
+        to their websites. The Sankey Diagram illustrates the connections between organisations, action domains, and
+        addressees by visualising flows of engagement. The Interactive Network Diagram shows connections between projects,
+        action domains, addressees, countries, and organisations in the ValEUs dataset.
+      </p>
+
+      <!-- Landing page view counter -->
+      <div class="view-counter hero-counter" role="status" aria-live="polite" aria-atomic="true">
+        <span class="eye" aria-hidden="true">👁</span>
+        <span id="landing-count">…</span>
+        <span>page views</span>
+      </div>
+    </section>
+    <section class="section">
+      <h2>Explore the visualisations</h2>
+
+      <div class="grid">
+
+        <!-- Flow Map card -->
+        <div class="card">
+          <a href="flow_map_mapbox_interactive.html" target="_blank" rel="noopener">
+            <img class="thumb" src="assets/img/Flow-preview.png" alt="Flow Map Preview">
+            <div class="card-body">
+              <span class="tag" style="background: rgba(124,207,25,0.18); border-color: rgba(124,207,25,0.45);">
+                Flow Map
+              </span>
+              <h3>Geographical Spread and Action Domains</h3>
+            </div>
+          </a>
+          <div class="card-body" style="padding-top:0;">
+            <p>Overview of organisations, their action domains, and links to their websites; filter by action domains.</p>
+          
+            <button class="more-toggle" type="button" aria-expanded="false" aria-controls="more-flow-map">More</button>
+            <div class="card-more" id="more-flow-map" hidden>
+              <p>
+                The flow map provides an overview of the <strong>geographical spread</strong> of the civil society organisations included in the database, their action domains, and a link to their website. Users can filter the map by action domain. Each action domain is represented by a distinct colour scheme, making it easier to identify patterns of engagement across countries and regions.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Sankey card -->
+        <div class="card">
+          <a href="sankey_new.html" target="_blank" rel="noopener">
+            <img class="thumb" src="assets/img/Sanky-preview.png" alt="Sankey Diagram Preview">
+            <div class="card-body">
+              <span class="tag" style="background: rgba(255,223,0,0.22); border-color: rgba(255,223,0,0.55);">
+                Sankey Diagram
+              </span>
+              <h3>Flows of Engagement Across Actors</h3>
+            </div>
+          </a>
+          <div class="card-body" style="padding-top:0;">
+            <p>Visualises connections between organisations, action domains, and addressees; wider flows indicate stronger ties.</p>
+            <button class="more-toggle" type="button" aria-expanded="false" aria-controls="more-sankey-map">More</button>
+            <div class="card-more" id="more-sankey-map" hidden>
+              <p>
+                This diagram <strong>illustrates flows of engagement</strong> between organizations, action domains, and addressees.
+              </p>
+              
+              <p>  
+                Each node represents an actor or category, while the connecting flows show how these actors and categories are linked in the underlying dataset.
+              </p>
+
+              <p>  
+                Wider flows indicate stronger or more frequent connections. This makes it possible to see where engagement is concentrated, which pathways dominate, and how activity branches or converges across the network. The Sankey diagram thus emphasizes the <strong>magnitude of relationships and the distribution of connections across stages</strong>.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Gephi Network card -->
+        <div class="card">
+          <a href="gephi_network.html" target="_blank" rel="noopener">
+            <img class="thumb" src="assets/img/Gephi-Preview.png" alt="Interactive network preview">
+            <div class="card-body">
+              <span class="tag" style="background: rgba(255,89,85,0.18); border-color: rgba(255,89,85,0.45);">
+                Interactive Network
+              </span>
+              <h3>Network Structure and Collaboration Clusters</h3>
+            </div>
+          </a>
+          <div class="card-body" style="padding-top:0;">
+            <p>ForceAtlas-based network of projects, organisations, addressees, and domains; reveals hubs, clusters, and bridges.</p>
+            
+            <button class="more-toggle" type="button" aria-expanded="false" aria-controls="more-gephi-map">More</button>
+            <div class="card-more" id="more-gephi-map" hidden>
+              <p>
+                This diagram <strong>visualizes connections</strong> between projects, organisations, action domains, addressees, countries, and institutions in the ValEUs dataset. It uses a network layout to <strong>show clusters, hubs, and bridging actors</strong>.
+              </p>
+
+              <p>
+                Larger and more central nodes represent actors or projects with many connections, while smaller nodes at the edges indicate more isolated actors. Nodes that appear between clusters often play a bridging role by linking otherwise separate areas of engagement.
+              </p>
+
+              <p>
+                The diagram therefore provides a <strong>bird’s-eye view of how civil society engagement is structured</strong>: dense cores indicate strong collaboration networks, while sparse branches point to more isolated actors or relationships.
+              </p>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>Contribute an initiative</h2>
+      <p class="lede">
+        The interactive database operates on a running basis to ensure that further relevant initiatives can be visualised in the database and on the map. If you are aware of other civil society initiatives that should be added, please submit them through the form below. New entries will be moderated and added regularly.
+      </p>
+      <div class="btnrow">
+        <a class="btn btn-primary" href="https://tally.so/r/gDdlpK" target="_blank" rel="noopener">
+          Submit an initiative
+        </a>
+      </div>
+    </section>
+
+    <footer>
+      <div class="eu">
+        <img src="assets/img/cofoundeu.png" alt="EU flag">
+        <div>
+          Funded by the European Union. Views and opinions expressed are however those of the author(s) only and do not necessarily reflect
+          those of the European Union or the European Education and Culture Executive Agency (EACEA). Neither the European Union nor EACEA
+          can be held responsible for them.<br>
+          © 2026 ValEUs
+        </div>
+      </div>
+    </footer>
+
+  </div><!-- /.wrap -->
+
+  <script>
+    // ── More / Less toggles ────────────────────────────────────────────────
+    document.querySelectorAll('.more-toggle').forEach(function (btn) {
+      btn.addEventListener('click', function (event) {
+        event.stopPropagation();
+        const id    = btn.getAttribute('aria-controls');
+        const box   = document.getElementById(id);
+        const isOpen = btn.getAttribute('aria-expanded') === 'true';
+        btn.setAttribute('aria-expanded', String(!isOpen));
+        box.hidden       = isOpen;
+        btn.textContent  = isOpen ? 'More' : 'Less';
+      });
+    });
+
+    // Page views — CountAPI
+    const COUNT_API_BASE = 'https://countapi.mileshilliard.com/api/v1';
+    const COUNT_API_KEY = 'valeus-2025-github-io-valeus-landing-page-d7083a94';
+
+    let counterBusy = false;
+    let counterHasValue = false;
+
+    async function updatePageViews(increment = false) {
+      const element = document.getElementById('landing-count');
+      if (!element || counterBusy) return;
+
+      counterBusy = true;
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 12000);
+
+      try {
+        // "hit" adds one view; "get" only reads the total.
+        const operation = increment ? 'hit' : 'get';
+        const response = await fetch(
+          `${COUNT_API_BASE}/${operation}/${encodeURIComponent(COUNT_API_KEY)}`,
+          { cache: 'no-store', signal: controller.signal }
+        );
+
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+        const data = await response.json();
+        const raw = data?.value;
+        const count = (
+          typeof raw === 'number' ||
+          (typeof raw === 'string' && raw.trim() !== '')
+        ) ? Number(raw) : NaN;
+
+        if (!Number.isSafeInteger(count) || count < 0) {
+          throw new Error('Invalid counter response');
+        }
+
+        const formatted = count.toLocaleString('en-GB');
+        if (element.textContent !== formatted) {
+          element.textContent = formatted;
+        }
+
+        counterHasValue = true;
+        element.title =
+          'Total recorded page loads; checked every 15 seconds while this tab is visible.';
+      } catch (error) {
+        if (!counterHasValue) element.textContent = 'unavailable';
+
+        element.title = counterHasValue
+          ? 'Last retrieved total; refresh temporarily unavailable.'
+          : 'Page-view service temporarily unavailable.';
+
+        console.warn('[Page views]', error);
+      } finally {
+        clearTimeout(timeout);
+        counterBusy = false;
+      }
+    }
+
+    // Count this page load exactly once.
+    updatePageViews(true);
+
+    // Refresh the displayed total without adding views.
+    setInterval(() => {
+      if (!document.hidden) updatePageViews();
+    }, 15000);
+
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) updatePageViews();
+    });
+
+  </script>
+
+</body>
+</html>
